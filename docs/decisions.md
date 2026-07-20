@@ -22,3 +22,6 @@ Avoids colliding with any local Postgres on 5432. Connection strings in `.env.ex
 
 ## 0.7 — API on port 8300 (8000 is taken on this machine)
 An unrelated local app owns port 8000 on the dev machine, so the Lore API binds 8300 (web stays on 3000). All scripts and env defaults use 8300.
+
+## 2.1 — Windows: never kill the uvicorn wrapper, kill the tree
+`uvicorn --reload` on Windows spawns a worker that inherits the listen socket. Killing the wrapper (or the PID that owns the port per netstat) leaves an orphaned worker serving STALE code on the port — netstat even attributes the socket to the dead parent PID. Symptom: edits "don't apply" after restart. Fix: `taskkill /PID <wrapper> /T /F` (tree kill) or stop the python worker itself; `scripts/dev.ps1` runs servers in their own windows so closing the window kills the tree.

@@ -10,6 +10,7 @@ import { PageTree } from "./page-tree";
 import { UserMenu } from "./user-menu";
 import { TrashDialog } from "./trash-dialog";
 import { InviteDialog } from "./invite-dialog";
+import { ImportButton } from "./import-button";
 import { useUiStore } from "@/stores/ui";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -69,6 +70,7 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
             </ScrollArea>
 
             <div className="w-[260px] border-t p-2">
+              <ImportButton workspaceId={workspaceId} />
               <button
                 onClick={() => setTrashOpen(true)}
                 className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"

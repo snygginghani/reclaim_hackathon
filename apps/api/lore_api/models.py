@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, Float, ForeignKey, String, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -93,6 +93,23 @@ class Page(Base):
     )
     # Soft delete = in trash. Hard delete removes the row (children cascade).
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+
+
+class Document(Base):
+    """A page's body. `blocks` is the BlockNote JSON snapshot — the read model used
+    for export, search, and RAG. Phase 3 adds the Yjs update log as the merge
+    source of truth; this snapshot stays maintained alongside it."""
+
+    __tablename__ = "documents"
+    __mapper_args__ = {"eager_defaults": True}
+
+    page_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("pages.id", ondelete="CASCADE"), primary_key=True
+    )
+    blocks: Mapped[list] = mapped_column(JSONB, default=list)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class Favorite(Base):

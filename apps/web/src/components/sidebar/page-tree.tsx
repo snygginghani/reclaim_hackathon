@@ -17,6 +17,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import {
   ChevronRight,
+  FileDown,
   FileText,
   MoreHorizontal,
   Plus,
@@ -239,8 +240,6 @@ function TreeRow({
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={cn(isDragging && "opacity-40")}
-      {...attributes}
-      {...listeners}
     >
       {dropDepth !== null && (
         <div
@@ -257,6 +256,10 @@ function TreeRow({
         hasChildren={node.hasChildren}
         expanded={expanded}
         onNewChild={onNewChild}
+        // Drag starts only from the row's label area — never from the action
+        // buttons, so menus/chevrons stay plain clicks. Only the listeners are
+        // spread: sortable's aria attributes would override the link's role.
+        dragHandleProps={listeners}
       />
     </div>
   );
@@ -296,6 +299,7 @@ function Row({
   hasChildren,
   expanded,
   onNewChild,
+  dragHandleProps,
 }: {
   page: Page;
   workspaceId: string;
@@ -305,6 +309,7 @@ function Row({
   hasChildren: boolean;
   expanded: boolean;
   onNewChild?: () => void;
+  dragHandleProps?: React.HTMLAttributes<HTMLElement>;
 }) {
   const router = useRouter();
   const toggleExpanded = useUiStore((s) => s.toggleExpanded);
@@ -363,6 +368,7 @@ function Row({
         href={`/w/${workspaceId}/p/${page.id}`}
         className="flex min-w-0 flex-1 items-center gap-1.5 py-1 focus-visible:outline-none"
         aria-current={active ? "page" : undefined}
+        {...dragHandleProps}
       >
         {page.icon ? (
           <span className="text-base leading-none">{page.icon}</span>
@@ -402,6 +408,21 @@ function Row({
             >
               {favorited ? <StarOff className="size-4" /> : <Star className="size-4" />}
               {favorited ? "Remove from favorites" : "Add to favorites"}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={async () => {
+                const { exportPage } = await import("@/lib/markdown");
+                const { api } = await import("@/lib/api");
+                try {
+                  const all = await api<Page[]>(`/api/pages?workspace_id=${workspaceId}`);
+                  await exportPage(page, all);
+                } catch {
+                  toast.error("Export failed");
+                }
+              }}
+            >
+              <FileDown className="size-4" />
+              Export markdown
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={handleTrash}>

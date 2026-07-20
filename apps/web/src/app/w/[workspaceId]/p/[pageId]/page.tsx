@@ -2,14 +2,22 @@
 
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { FileText, Smile, Star } from "lucide-react";
+import dynamic from "next/dynamic";
+import { AlertCircle, Check, FileText, Loader2, Smile, Star } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { EmojiPicker } from "@/components/emoji-picker";
 import { useFavorites, usePage, usePages, useToggleFavorite, useUpdatePage } from "@/hooks/use-pages";
+import { useWorkspace } from "@/hooks/use-workspaces";
 import { cn } from "@/lib/utils";
 import type { Page } from "@/lib/types";
+import type { SaveState } from "@/components/editor/editor";
+
+// The editor is heavy (ProseMirror); load it client-side only, after the shell paints.
+const Editor = dynamic(
+  () => import("@/components/editor/editor").then((m) => m.Editor),
+  { ssr: false }
+);
 
 export default function PageView({
   params,
@@ -19,11 +27,14 @@ export default function PageView({
   const { workspaceId, pageId } = use(params);
   const page = usePage(pageId);
   const pages = usePages(workspaceId);
+  const workspace = useWorkspace(workspaceId);
   const favorites = useFavorites(workspaceId);
   const updatePage = useUpdatePage(workspaceId);
   const toggleFavorite = useToggleFavorite(workspaceId);
+  const [saveState, setSaveState] = useState<SaveState>("saved");
 
   const favorited = (favorites.data ?? []).some((f) => f.page_id === pageId);
+  const canEdit = workspace.data?.role !== "viewer";
 
   // Breadcrumbs from the flat page list.
   const crumbs: Page[] = [];
@@ -80,6 +91,7 @@ export default function PageView({
           </span>
         </nav>
         <div className="ml-auto flex items-center gap-1">
+          <SaveChip state={saveState} />
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -111,20 +123,37 @@ export default function PageView({
           </div>
         )}
 
-        {/* The BlockNote editor mounts here in Phase 2. */}
         {page.data && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="mt-6 text-sm text-muted-foreground"
-          >
-            The editor arrives in the next build step. Titles, icons, favorites, and the page tree
-            are fully live.
-          </motion.p>
+          <Editor pageId={pageId} editable={canEdit} onSaveState={setSaveState} />
         )}
       </div>
     </div>
+  );
+}
+
+function SaveChip({ state }: { state: SaveState }) {
+  return (
+    <span
+      role="status"
+      className={cn(
+        "flex items-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors",
+        state === "error" ? "text-destructive" : "text-muted-foreground"
+      )}
+    >
+      {state === "saving" ? (
+        <>
+          <Loader2 className="size-3 animate-spin" aria-hidden /> Saving…
+        </>
+      ) : state === "error" ? (
+        <>
+          <AlertCircle className="size-3" aria-hidden /> Couldn’t save
+        </>
+      ) : (
+        <>
+          <Check className="size-3" aria-hidden /> Saved
+        </>
+      )}
+    </span>
   );
 }
 
