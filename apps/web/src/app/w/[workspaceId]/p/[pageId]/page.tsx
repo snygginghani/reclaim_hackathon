@@ -18,6 +18,14 @@ const Editor = dynamic(
   () => import("@/components/editor/editor").then((m) => m.Editor),
   { ssr: false }
 );
+const DatabasePage = dynamic(
+  () => import("@/components/database/database-page").then((m) => m.DatabasePage),
+  { ssr: false }
+);
+const RowProperties = dynamic(
+  () => import("@/components/database/row-properties").then((m) => m.RowProperties),
+  { ssr: false }
+);
 
 export default function PageView({
   params,
@@ -125,7 +133,13 @@ export default function PageView({
           </div>
         )}
 
-        {page.data && (
+        {page.data && page.data.kind === "database" && (
+          <DatabasePage pageId={pageId} workspaceId={workspaceId} canEdit={canEdit} />
+        )}
+        {page.data && page.data.kind === "row" && (
+          <RowProperties rowId={pageId} workspaceId={workspaceId} canEdit={canEdit} />
+        )}
+        {page.data && page.data.kind !== "database" && (
           <Editor
             pageId={pageId}
             editable={canEdit}

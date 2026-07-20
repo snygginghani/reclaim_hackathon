@@ -23,6 +23,7 @@ import {
   Plus,
   Star,
   StarOff,
+  Table2,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -45,6 +46,7 @@ import {
   useToggleFavorite,
   useTrashPage,
 } from "@/hooks/use-pages";
+import { useCreateDatabase } from "@/hooks/use-database";
 import { useUiStore } from "@/stores/ui";
 
 const INDENT = 16;
@@ -55,6 +57,7 @@ export function PageTree({ workspaceId }: { workspaceId: string }) {
   const pages = usePages(workspaceId);
   const favorites = useFavorites(workspaceId);
   const createPage = useCreatePage(workspaceId);
+  const createDatabase = useCreateDatabase();
   const movePage = useMovePage(workspaceId);
   const expandedMap = useUiStore((s) => s.expanded);
   const setExpanded = useUiStore((s) => s.setExpanded);
@@ -120,6 +123,15 @@ export function PageTree({ workspaceId }: { workspaceId: string }) {
     }
   };
 
+  const handleNewDatabase = async () => {
+    try {
+      const database = await createDatabase.mutateAsync({ workspace_id: workspaceId });
+      router.push(`/w/${workspaceId}/p/${database.page.id}`);
+    } catch {
+      toast.error("Couldn’t create the database");
+    }
+  };
+
   const activeNode = activeId ? flat.find((f) => f.page.id === activeId) : null;
 
   return (
@@ -144,13 +156,26 @@ export function PageTree({ workspaceId }: { workspaceId: string }) {
 
       <div className="flex items-center justify-between pr-1">
         <SectionLabel>Pages</SectionLabel>
-        <button
-          onClick={() => handleNewPage(null)}
-          aria-label="New page"
-          className="flex size-5 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground focus-visible:opacity-100 group-hover/sidebar:opacity-100"
-        >
-          <Plus className="size-4" />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              aria-label="Add page or database"
+              className="flex size-5 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground focus-visible:opacity-100 group-hover/sidebar:opacity-100"
+            >
+              <Plus className="size-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="right">
+            <DropdownMenuItem onClick={() => handleNewPage(null)}>
+              <FileText className="size-4" />
+              New page
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleNewDatabase}>
+              <Table2 className="size-4" />
+              New database
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <DndContext
@@ -372,6 +397,8 @@ function Row({
       >
         {page.icon ? (
           <span className="text-base leading-none">{page.icon}</span>
+        ) : page.kind === "database" ? (
+          <Table2 className="size-4 shrink-0" />
         ) : (
           <FileText className="size-4 shrink-0" />
         )}

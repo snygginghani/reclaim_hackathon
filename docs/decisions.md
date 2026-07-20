@@ -37,3 +37,12 @@ Role "viewer" gets a ReadOnlyWebsocket that swallows y-protocol SYNC_STEP2/UPDAT
 
 ## 3.4 — One-shot server-granted seeding for legacy pages
 Reclaim v1's fixed-clientID trick is replaced by POST /collab-seed: the first editor client to open a legacy/imported page wins a transactional grant and inserts the JSON snapshot into the fragment; racers are denied. Cold-open duplication is structurally impossible.
+
+## 4.1 — Rows are pages
+A database row is a Page with kind="row" and parent = the database page. "Open any row as a page" costs nothing, rows get titles/icons/documents/collab for free, and the sidebar simply filters kind="row" out. Cell data lives in db_values (row_id × property_id → JSONB), typed per property.
+
+## 4.2 — Views evaluate client-side
+Filters/sorts/grouping run in the browser (lib/database-query.ts) over the full row set; the server stores view config verbatim. At v1 workspace scale this is faster and radically simpler than a server query DSL; the seam to push evaluation server-side later is applyView().
+
+## 4.3 — Row deletion is hard delete
+Rows skip the page trash: restoring individual grid rows piecemeal is more confusing than helpful, and the grid UX expects immediate removal. Docs/databases keep the trash flow.
