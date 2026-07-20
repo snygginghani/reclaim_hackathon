@@ -7,10 +7,23 @@ import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/shadcn";
 import type { Block } from "@blocknote/core";
 import "@blocknote/shadcn/style.css";
-import { api } from "@/lib/api";
+import { api, API_URL } from "@/lib/api";
+import {
+  getCollabSession,
+  releaseCollabSession,
+  retainCollabSession,
+} from "@/lib/collab-session";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useMe } from "@/hooks/use-auth";
 
 export type SaveState = "saved" | "saving" | "error";
+
+/** A collaborator visible on this page (from Yjs awareness). */
+export interface PresenceUser {
+  clientId: number;
+  name: string;
+  color: string;
+}
 
 interface DocumentPayload {
   page_id: string;
@@ -24,15 +37,17 @@ export function Editor({
   pageId,
   editable,
   onSaveState,
+  onPresence,
 }: {
   pageId: string;
   editable: boolean;
   onSaveState: (s: SaveState) => void;
+  onPresence?: (users: PresenceUser[]) => void;
 }) {
   const doc = useQuery({
     queryKey: ["document", pageId],
     queryFn: () => api<DocumentPayload>(`/api/pages/${pageId}/content`),
-    staleTime: Infinity, // the editor owns the document while open
+    staleTime: Infinity, // the collaborative session owns the document while open
   });
 
   if (doc.isPending) {
@@ -52,33 +67,103 @@ export function Editor({
     );
   }
   return (
-    <LoadedEditor
+    <CollabEditor
       key={pageId}
       pageId={pageId}
-      initial={doc.data.blocks}
+      snapshot={doc.data.blocks}
       editable={editable}
       onSaveState={onSaveState}
+      onPresence={onPresence}
     />
   );
 }
 
-function LoadedEditor({
+function CollabEditor({
   pageId,
-  initial,
+  snapshot,
   editable,
   onSaveState,
+  onPresence,
 }: {
   pageId: string;
-  initial: Block[];
+  snapshot: Block[];
   editable: boolean;
   onSaveState: (s: SaveState) => void;
+  onPresence?: (users: PresenceUser[]) => void;
 }) {
   const { resolvedTheme } = useTheme();
   const qc = useQueryClient();
-  const editor = useCreateBlockNote({
-    initialContent: initial.length > 0 ? initial : undefined,
-  });
+  const me = useMe();
 
+  // Shared session, refcounted in the effect so StrictMode's unmount/remount
+  // cycle can't destroy a socket the surviving mount still uses.
+  const collab = getCollabSession(pageId);
+  useEffect(() => {
+    retainCollabSession(pageId);
+    return () => releaseCollabSession(pageId);
+  }, [pageId]);
+
+  const editor = useCreateBlockNote(
+    {
+      collaboration: {
+        provider: collab.provider,
+        fragment: collab.fragment,
+        user: {
+          name: me.data?.name ?? "Someone",
+          color: `hsl(${me.data?.avatar_hue ?? 220} 70% 50%)`,
+        },
+      },
+    },
+    [collab]
+  );
+
+  // --- one-time seeding of legacy/imported pages into the Y.Doc ---
+  const seedTried = useRef(false);
+  useEffect(() => {
+    const trySeed = async (synced: boolean) => {
+      if (!synced || seedTried.current) return;
+      seedTried.current = true;
+      if (collab.fragment.length > 0 || snapshot.length === 0 || !editable) return;
+      try {
+        const { granted } = await api<{ granted: boolean }>(
+          `/api/pages/${pageId}/collab-seed`,
+          { method: "POST" }
+        );
+        // The server grants exactly one seeder — the deterministic-seed lesson
+        // from Reclaim v1, enforced centrally instead of via fixed clientIDs.
+        if (granted && collab.fragment.length === 0) {
+          editor.replaceBlocks(editor.document, snapshot);
+        }
+      } catch {
+        // Seeding is best-effort; the page just starts empty until an editor types.
+      }
+    };
+    collab.provider.on("sync", trySeed);
+    if (collab.provider.synced) void trySeed(true);
+    return () => collab.provider.off("sync", trySeed);
+  }, [collab, editor, pageId, snapshot, editable]);
+
+  // --- presence (live avatars) ---
+  useEffect(() => {
+    if (!onPresence) return;
+    const awareness = collab.provider.awareness;
+    const emit = () => {
+      const users: PresenceUser[] = [];
+      awareness.getStates().forEach((state, clientId) => {
+        const u = state.user as { name?: string; color?: string } | undefined;
+        if (u?.name) users.push({ clientId, name: u.name, color: u.color ?? "#888" });
+      });
+      onPresence(users);
+    };
+    awareness.on("change", emit);
+    emit();
+    return () => {
+      awareness.off("change", emit);
+      onPresence([]);
+    };
+  }, [collab, onPresence]);
+
+  // --- read-model autosave (documents.blocks stays fresh for export/search/RAG) ---
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const latest = useRef<Block[] | null>(null);
   const saving = useRef(false);
@@ -102,24 +187,22 @@ function LoadedEditor({
       onSaveState("error");
     } finally {
       saving.current = false;
-      // Edits arrived mid-save: save again right away.
-      if (latest.current !== null) void flush();
+      if (latest.current !== null) void flush(); // edits arrived mid-save
     }
   };
 
   const handleChange = () => {
+    if (!editable) return;
     latest.current = editor.document;
     onSaveState("saving");
     clearTimeout(timer.current);
     timer.current = setTimeout(() => void flush(), AUTOSAVE_MS);
   };
 
-  // Flush pending edits when leaving the page or closing the tab.
   useEffect(() => {
     const beforeUnload = () => {
       if (latest.current !== null) {
-        // Fire-and-forget; sendBeacon can't set cookies-included JSON PUT, so use fetch keepalive.
-        void fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8300"}/api/pages/${pageId}/content`, {
+        void fetch(`${API_URL}/api/pages/${pageId}/content`, {
           method: "PUT",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
