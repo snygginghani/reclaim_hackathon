@@ -1,16 +1,28 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
+from .collab import make_server
 from .config import get_settings
 from .db import engine
-from .routers import auth, documents, pages, workspaces
+from .routers import auth, collab, documents, pages, workspaces
 
-app = FastAPI(title="Lore API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with make_server() as collab_server:
+        app.state.collab_server = collab_server
+        yield
+
+
+app = FastAPI(title="Lore API", version="0.1.0", lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(workspaces.router)
 app.include_router(pages.router)
 app.include_router(documents.router)
+app.include_router(collab.router)
 
 app.add_middleware(
     CORSMiddleware,

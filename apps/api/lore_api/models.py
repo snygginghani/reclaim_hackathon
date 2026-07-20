@@ -1,7 +1,17 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    Float,
+    ForeignKey,
+    LargeBinary,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -110,6 +120,24 @@ class Document(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    # Set when a client seeded the collaborative Y.Doc from `blocks` (legacy /
+    # imported pages). Grants exactly one seeder; see POST /{page_id}/collab-seed.
+    collab_seeded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+
+
+class YDocUpdate(Base):
+    """Append-only Yjs update log per page — the merge source of truth for
+    real-time collaboration. Compacted into a single merged update when the
+    log grows past a threshold (see collab.PostgresYStore)."""
+
+    __tablename__ = "ydoc_updates"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    page_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("pages.id", ondelete="CASCADE"), index=True
+    )
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Favorite(Base):

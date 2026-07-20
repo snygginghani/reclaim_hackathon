@@ -25,3 +25,15 @@ An unrelated local app owns port 8000 on the dev machine, so the Lore API binds 
 
 ## 2.1 — Windows: never kill the uvicorn wrapper, kill the tree
 `uvicorn --reload` on Windows spawns a worker that inherits the listen socket. Killing the wrapper (or the PID that owns the port per netstat) leaves an orphaned worker serving STALE code on the port — netstat even attributes the socket to the dead parent PID. Symptom: edits "don't apply" after restart. Fix: `taskkill /PID <wrapper> /T /F` (tree kill) or stop the python worker itself; `scripts/dev.ps1` runs servers in their own windows so closing the window kills the tree.
+
+## 3.1 — Collab session registry, not per-component providers
+React StrictMode's mount→unmount→remount destroyed the WebsocketProvider that the remounted component's preserved state still referenced: the editor typed into a dead Y.Doc while looking healthy. Sessions now live in a module-level refcounted registry (src/lib/collab-session.ts): render-safe getCollabSession (creation grace timer), retain/release from effects, deferred destroy so fast remounts adopt the live socket. This also dedupes connections when multiple views of one page mount.
+
+## 3.2 — documents.blocks stays a client-maintained read model
+The Yjs log (ydoc_updates) is the merge source of truth; the BlockNote JSON snapshot is maintained by connected clients' debounced autosave, because BlockNote's fragment↔JSON conversion only exists in TypeScript. Consequence: export/search/RAG read at-most-800ms-stale content, and a page edited then instantly closed can be slightly staler until reopened. Accepted for v1; a Node sidecar converter could close the gap later.
+
+## 3.3 — Viewer write-blocking happens in the socket adapter
+Role "viewer" gets a ReadOnlyWebsocket that swallows y-protocol SYNC_STEP2/UPDATE messages server-side. Viewers receive live edits and cursors but their (hypothetically forged) writes never reach the room, regardless of client behavior.
+
+## 3.4 — One-shot server-granted seeding for legacy pages
+Reclaim v1's fixed-clientID trick is replaced by POST /collab-seed: the first editor client to open a legacy/imported page wins a transactional grant and inserts the JSON snapshot into the fragment; racers are denied. Cold-open duplication is structurally impossible.

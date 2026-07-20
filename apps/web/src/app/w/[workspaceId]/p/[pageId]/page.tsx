@@ -11,7 +11,7 @@ import { useFavorites, usePage, usePages, useToggleFavorite, useUpdatePage } fro
 import { useWorkspace } from "@/hooks/use-workspaces";
 import { cn } from "@/lib/utils";
 import type { Page } from "@/lib/types";
-import type { SaveState } from "@/components/editor/editor";
+import type { PresenceUser, SaveState } from "@/components/editor/editor";
 
 // The editor is heavy (ProseMirror); load it client-side only, after the shell paints.
 const Editor = dynamic(
@@ -32,6 +32,7 @@ export default function PageView({
   const updatePage = useUpdatePage(workspaceId);
   const toggleFavorite = useToggleFavorite(workspaceId);
   const [saveState, setSaveState] = useState<SaveState>("saved");
+  const [presence, setPresence] = useState<PresenceUser[]>([]);
 
   const favorited = (favorites.data ?? []).some((f) => f.page_id === pageId);
   const canEdit = workspace.data?.role !== "viewer";
@@ -91,6 +92,7 @@ export default function PageView({
           </span>
         </nav>
         <div className="ml-auto flex items-center gap-1">
+          <PresenceStack users={presence} />
           <SaveChip state={saveState} />
           <Tooltip>
             <TooltipTrigger asChild>
@@ -124,9 +126,42 @@ export default function PageView({
         )}
 
         {page.data && (
-          <Editor pageId={pageId} editable={canEdit} onSaveState={setSaveState} />
+          <Editor
+            pageId={pageId}
+            editable={canEdit}
+            onSaveState={setSaveState}
+            onPresence={setPresence}
+          />
         )}
       </div>
+    </div>
+  );
+}
+
+function PresenceStack({ users }: { users: PresenceUser[] }) {
+  if (users.length < 2) return null; // solo editing needs no avatars
+  const shown = users.slice(0, 5);
+  return (
+    <div className="mr-1 flex items-center -space-x-1.5" aria-label={`${users.length} people here`}>
+      {shown.map((u) => (
+        <span
+          key={u.clientId}
+          title={u.name}
+          className="flex size-6 items-center justify-center rounded-full border-2 border-background text-[10px] font-semibold text-white"
+          style={{ background: u.color }}
+        >
+          {u.name
+            .split(" ")
+            .slice(0, 2)
+            .map((p) => p[0]?.toUpperCase())
+            .join("")}
+        </span>
+      ))}
+      {users.length > shown.length && (
+        <span className="flex size-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-medium text-muted-foreground">
+          +{users.length - shown.length}
+        </span>
+      )}
     </div>
   );
 }
