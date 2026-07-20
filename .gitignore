@@ -1,0 +1,39 @@
+# --- IDE / OS ---
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# --- Python ---
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# --- Node ---
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+.eslintcache
+
+# --- env / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- test / coverage ---
+coverage/
+htmlcov/
+.coverage
+playwright-report/
+test-results/
+
+# --- app data ---
+uploads/
+*.log
