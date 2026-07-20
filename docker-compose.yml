@@ -1,0 +1,22 @@
+name: lore
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: lore
+      POSTGRES_PASSWORD: lore_dev_password
+      POSTGRES_DB: lore
+    ports:
+      # 5433 on the host to avoid clashing with any locally installed Postgres.
+      - "5433:5432"
+    volumes:
+      - lore_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lore -d lore"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  lore_pgdata:
