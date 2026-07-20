@@ -95,6 +95,7 @@ class PageOut(ORMModel):
     parent_id: uuid.UUID | None
     title: str
     icon: str | None
+    kind: str
     position: float
     updated_at: datetime
     deleted_at: datetime | None

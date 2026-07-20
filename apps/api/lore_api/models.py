@@ -94,6 +94,9 @@ class Page(Base):
     )
     title: Mapped[str] = mapped_column(Text, default="")
     icon: Mapped[str | None] = mapped_column(String(16), default=None)
+    # "doc" = normal page, "database" = full-page database, "row" = a database row
+    # (rows are pages, so any row opens as a page with an editor body).
+    kind: Mapped[str] = mapped_column(String(16), default="doc", server_default="doc")
     # Fractional ordering among siblings: insert at end = max+1024, move = midpoint.
     position: Mapped[float] = mapped_column(Float, default=1024.0)
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
@@ -138,6 +141,55 @@ class YDocUpdate(Base):
     )
     data: Mapped[bytes] = mapped_column(LargeBinary)
     ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DbProperty(Base):
+    """A column of a database. `database_id` is the database PAGE's id.
+    `options` holds type-specific config: select/multi_select -> {"choices":
+    [{"id","name","color"}]}, relation -> {"target": <database page id>}."""
+
+    __tablename__ = "db_properties"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    database_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("pages.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(120))
+    type: Mapped[str] = mapped_column(String(16))
+    position: Mapped[float] = mapped_column(Float, default=1024.0)
+    options: Mapped[dict] = mapped_column(JSONB, default=dict)
+
+
+class DbView(Base):
+    """A saved view of a database. `config` holds filters, sorts, grouping,
+    visible columns, and per-view settings like the calendar's date property."""
+
+    __tablename__ = "db_views"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    database_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("pages.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(120))
+    type: Mapped[str] = mapped_column(String(16))  # table | board | list | calendar
+    position: Mapped[float] = mapped_column(Float, default=1024.0)
+    config: Mapped[dict] = mapped_column(JSONB, default=dict)
+
+
+class DbValue(Base):
+    """One cell: the value of one property for one row page."""
+
+    __tablename__ = "db_values"
+    __table_args__ = (UniqueConstraint("row_id", "property_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    row_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("pages.id", ondelete="CASCADE"), index=True
+    )
+    property_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("db_properties.id", ondelete="CASCADE"), index=True
+    )
+    value: Mapped[dict] = mapped_column(JSONB, default=dict)
 
 
 class Favorite(Base):

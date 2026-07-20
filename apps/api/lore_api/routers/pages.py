@@ -57,18 +57,25 @@ async def create_page(body: PageCreate, user: CurrentUser, db: DbSession) -> Pag
 
 @router.get("", response_model=list[PageOut])
 async def list_pages(
-    workspace_id: uuid.UUID, user: CurrentUser, db: DbSession, trashed: bool = False
+    workspace_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    trashed: bool = False,
+    include_rows: bool = False,
 ) -> list[Page]:
-    """Flat list of the workspace's pages; the client assembles the tree."""
+    """Flat list of the workspace's pages; the client assembles the tree.
+    Database rows are excluded by default — they belong to their grid, not
+    the sidebar."""
     await require_membership(db, workspace_id, user.id)
     cond = Page.deleted_at.is_not(None) if trashed else Page.deleted_at.is_(None)
-    rows = (
-        await db.execute(
-            select(Page)
-            .where(Page.workspace_id == workspace_id, cond)
-            .order_by(Page.position, Page.created_at)
-        )
-    ).scalars()
+    stmt = (
+        select(Page)
+        .where(Page.workspace_id == workspace_id, cond)
+        .order_by(Page.position, Page.created_at)
+    )
+    if not include_rows:
+        stmt = stmt.where(Page.kind != "row")
+    rows = (await db.execute(stmt)).scalars()
     return list(rows)
 
 
