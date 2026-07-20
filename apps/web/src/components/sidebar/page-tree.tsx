@@ -231,7 +231,7 @@ function TreeRow({
   dropDepth: number | null;
   onNewChild: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const { listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: node.page.id,
   });
 
