@@ -131,6 +131,17 @@
   --sidebar-ring: #7c87e0;
 }
 
+/* BlockNote inside Lore: blend into the page canvas and align text with the title.
+   The side menu (drag handle / +) floats via fixed positioning, so removing the
+   editor's gutter padding does not clip it. */
+.lore-editor .bn-editor {
+  background: transparent;
+  padding-inline: 0;
+}
+.lore-editor .bn-editor a {
+  color: var(--primary);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
