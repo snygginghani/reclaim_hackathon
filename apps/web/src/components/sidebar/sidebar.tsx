@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Menu, PanelLeftClose, PanelLeftOpen, Search, Sparkles, Trash2, X } from "lucide-react";
+import { Brain, Menu, PanelLeftClose, PanelLeftOpen, Search, Sparkles, Trash2, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -209,6 +209,13 @@ function SidebarInner({
         >
           <Sparkles className="size-4" />
           AI settings
+        </Link>
+        <Link
+          href={`/w/${workspaceId}/settings/memory`}
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <Brain className="size-4" />
+          Lore’s memory
         </Link>
         <ImportButton workspaceId={workspaceId} />
         <button

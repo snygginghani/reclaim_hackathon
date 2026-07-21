@@ -142,6 +142,19 @@
   color: var(--primary);
 }
 
+/* Citation jump: briefly ring the source block. */
+@keyframes lore-cite-flash {
+  0%, 100% { background-color: transparent; box-shadow: none; }
+  15%, 60% { background-color: var(--ai-soft); box-shadow: -8px 0 0 var(--ai-soft), 8px 0 0 var(--ai-soft); }
+}
+.lore-cite-flash {
+  animation: lore-cite-flash 1.8s var(--ease-out-expo);
+  border-radius: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lore-cite-flash { animation: none; outline: 2px solid var(--ai); outline-offset: 2px; }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

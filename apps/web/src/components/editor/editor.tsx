@@ -15,6 +15,7 @@ import {
 } from "@/lib/collab-session";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMe } from "@/hooks/use-auth";
+import { useHighlight } from "@/stores/highlight";
 
 export type SaveState = "saved" | "saving" | "error";
 
@@ -116,6 +117,24 @@ function CollabEditor({
     },
     [collab]
   );
+
+  // --- citation jump: flash a block when a citation targets this page ---
+  const hlPageId = useHighlight((s) => s.pageId);
+  const hlBlockId = useHighlight((s) => s.blockId);
+  const clearHighlight = useHighlight((s) => s.clear);
+  useEffect(() => {
+    if (hlPageId !== pageId || !hlBlockId) return;
+    const t = setTimeout(() => {
+      const el = document.querySelector(`[data-id="${hlBlockId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("lore-cite-flash");
+        setTimeout(() => el.classList.remove("lore-cite-flash"), 1800);
+      }
+      clearHighlight();
+    }, 350);
+    return () => clearTimeout(t);
+  }, [hlPageId, hlBlockId, pageId, clearHighlight]);
 
   // --- one-time seeding of legacy/imported pages into the Y.Doc ---
   const seedTried = useRef(false);
