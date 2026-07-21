@@ -16,8 +16,14 @@ import { useUiStore } from "@/stores/ui";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
+/**
+ * `null` until measured. Defaulting to `false` meant a narrow viewport rendered
+ * the desktop sidebar on the first paint and tore it down once the effect ran —
+ * the sidebar visibly flashed in and vanished. Callers render nothing until this
+ * resolves, which costs one frame on desktop and removes the flash.
+ */
 function useIsMobile() {
-  const [mobile, setMobile] = useState(false);
+  const [mobile, setMobile] = useState<boolean | null>(null);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
     const update = () => setMobile(mq.matches);
@@ -53,6 +59,8 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
       <InviteDialog workspaceId={workspaceId} open={inviteOpen} onOpenChange={setInviteOpen} />
     </>
   );
+
+  if (isMobile === null) return null; // avoid painting the wrong variant first
 
   if (isMobile) {
     return (
