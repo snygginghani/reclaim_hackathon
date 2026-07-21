@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { BookOpenText, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { LoreMark } from "@/components/lore-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLogin, useRegister } from "@/hooks/use-auth";
@@ -47,9 +48,7 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
         className="w-full max-w-sm"
       >
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <div className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-            <BookOpenText className="size-6" aria-hidden />
-          </div>
+          <LoreMark className="size-11 text-foreground" />
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
               {mode === "login" ? "Welcome back" : "Create your account"}

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { PanelLeftClose, PanelLeftOpen, Search, Sparkles, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Menu, PanelLeftClose, PanelLeftOpen, Search, Sparkles, Trash2, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -16,12 +16,88 @@ import { useUiStore } from "@/stores/ui";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
+function useIsMobile() {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return mobile;
+}
+
 export function Sidebar({ workspaceId }: { workspaceId: string }) {
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const setCollapsed = useUiStore((s) => s.setSidebarCollapsed);
-  const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
   const [trashOpen, setTrashOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const isMobile = useIsMobile();
+
+  const inner = (variant: "desktop" | "mobile", widthClass: string) => (
+    <SidebarInner
+      workspaceId={workspaceId}
+      widthClass={widthClass}
+      variant={variant}
+      onClose={() => (variant === "mobile" ? setMobileOpen(false) : setCollapsed(true))}
+      onTrash={() => setTrashOpen(true)}
+      onInvite={() => setInviteOpen(true)}
+    />
+  );
+
+  const dialogs = (
+    <>
+      <TrashDialog workspaceId={workspaceId} open={trashOpen} onOpenChange={setTrashOpen} />
+      <InviteDialog workspaceId={workspaceId} open={inviteOpen} onOpenChange={setInviteOpen} />
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        {!mobileOpen && (
+          <button
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+            className="fixed left-3 top-3 z-30 flex size-9 items-center justify-center rounded-md border bg-card text-muted-foreground shadow-sm"
+          >
+            <Menu className="size-5" />
+          </button>
+        )}
+        <AnimatePresence>
+          {mobileOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setMobileOpen(false)}
+                className="fixed inset-0 z-40 bg-black/50"
+                aria-hidden
+              />
+              <motion.aside
+                initial={{ x: "-100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "-100%" }}
+                transition={{ duration: 0.24, ease: EASE }}
+                // A tap on any navigating link inside the drawer dismisses it.
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest("a")) setMobileOpen(false);
+                }}
+                className="group/sidebar fixed inset-y-0 left-0 z-50 flex h-dvh w-[280px] flex-col border-r bg-sidebar text-sidebar-foreground shadow-xl"
+              >
+                {inner("mobile", "w-full")}
+              </motion.aside>
+            </>
+          )}
+        </AnimatePresence>
+        {dialogs}
+      </>
+    );
+  }
 
   return (
     <>
@@ -34,62 +110,7 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
             transition={{ duration: 0.2, ease: EASE }}
             className="group/sidebar relative z-20 flex h-dvh shrink-0 flex-col overflow-hidden border-r bg-sidebar text-sidebar-foreground"
           >
-            <div className="flex w-[260px] shrink-0 items-center gap-1 p-2">
-              <div className="min-w-0 flex-1">
-                <WorkspaceSwitcher workspaceId={workspaceId} onInvite={() => setInviteOpen(true)} />
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setCollapsed(true)}
-                    aria-label="Collapse sidebar"
-                    className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground group-hover/sidebar:opacity-100"
-                  >
-                    <PanelLeftClose className="size-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  Collapse <kbd className="ml-1 font-mono text-[10px]">⌘\</kbd>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-
-            <div className="w-[260px] px-2">
-              <button
-                onClick={() => setPaletteOpen(true)}
-                className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                aria-label="Search"
-              >
-                <Search className="size-4" />
-                Search
-                <kbd className="ml-auto rounded border bg-secondary px-1 font-mono text-[10px] text-muted-foreground">
-                  ⌘K
-                </kbd>
-              </button>
-            </div>
-
-            <ScrollArea className="min-h-0 w-[260px] flex-1 px-2 py-1">
-              <PageTree workspaceId={workspaceId} />
-            </ScrollArea>
-
-            <div className="w-[260px] border-t p-2">
-              <Link
-                href={`/w/${workspaceId}/settings/ai`}
-                className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              >
-                <Sparkles className="size-4" />
-                AI settings
-              </Link>
-              <ImportButton workspaceId={workspaceId} />
-              <button
-                onClick={() => setTrashOpen(true)}
-                className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              >
-                <Trash2 className="size-4" />
-                Trash
-              </button>
-              <UserMenu />
-            </div>
+            {inner("desktop", "w-[260px]")}
           </motion.aside>
         )}
       </AnimatePresence>
@@ -109,8 +130,96 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
         </Tooltip>
       )}
 
-      <TrashDialog workspaceId={workspaceId} open={trashOpen} onOpenChange={setTrashOpen} />
-      <InviteDialog workspaceId={workspaceId} open={inviteOpen} onOpenChange={setInviteOpen} />
+      {dialogs}
+    </>
+  );
+}
+
+function SidebarInner({
+  workspaceId,
+  widthClass,
+  variant,
+  onClose,
+  onTrash,
+  onInvite,
+}: {
+  workspaceId: string;
+  widthClass: string;
+  variant: "desktop" | "mobile";
+  onClose: () => void;
+  onTrash: () => void;
+  onInvite: () => void;
+}) {
+  const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
+
+  return (
+    <>
+      <div className={`flex ${widthClass} shrink-0 items-center gap-1 p-2`}>
+        <div className="min-w-0 flex-1">
+          <WorkspaceSwitcher workspaceId={workspaceId} onInvite={onInvite} />
+        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onClose}
+              aria-label={variant === "mobile" ? "Close menu" : "Collapse sidebar"}
+              className={`flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-secondary hover:text-foreground ${
+                variant === "mobile"
+                  ? ""
+                  : "opacity-0 group-hover/sidebar:opacity-100 focus-visible:opacity-100"
+              }`}
+            >
+              {variant === "mobile" ? (
+                <X className="size-4" />
+              ) : (
+                <PanelLeftClose className="size-4" />
+              )}
+            </button>
+          </TooltipTrigger>
+          {variant === "desktop" && (
+            <TooltipContent side="right">
+              Collapse <kbd className="ml-1 font-mono text-[10px]">⌘\</kbd>
+            </TooltipContent>
+          )}
+        </Tooltip>
+      </div>
+
+      <div className={`${widthClass} px-2`}>
+        <button
+          onClick={() => setPaletteOpen(true)}
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          aria-label="Search"
+        >
+          <Search className="size-4" />
+          Search
+          <kbd className="ml-auto rounded border bg-secondary px-1 font-mono text-[10px] text-muted-foreground">
+            ⌘K
+          </kbd>
+        </button>
+      </div>
+
+      <ScrollArea className={`min-h-0 ${widthClass} flex-1 px-2 py-1`}>
+        <PageTree workspaceId={workspaceId} />
+      </ScrollArea>
+
+      <div className={`${widthClass} border-t p-2`}>
+        <Link
+          href={`/w/${workspaceId}/settings/ai`}
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <Sparkles className="size-4" />
+          AI settings
+        </Link>
+        <ImportButton workspaceId={workspaceId} />
+        <button
+          onClick={onTrash}
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <Trash2 className="size-4" />
+          Trash
+        </button>
+        <UserMenu />
+      </div>
     </>
   );
 }

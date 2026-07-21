@@ -20,9 +20,24 @@ from .test_pages import make_workspace
 def hw(ram=32.0, avail=20.0, vram: float | None = None, disk=500.0) -> HardwareInfo:
     gpus = [GpuInfo(vendor="nvidia", name="RTX Test", vram_gb=vram)] if vram else []
     return HardwareInfo(
-        os="TestOS", cpu="TestCPU", cores=8, ram_total_gb=ram,
-        ram_available_gb=avail, disk_free_gb=disk, gpus=gpus,
+        os="TestOS", cpu="TestCPU", arch="x86_64", cores_physical=8, cores_logical=16,
+        ram_total_gb=ram, ram_available_gb=avail, disk_free_gb=disk, gpus=gpus,
     )
+
+
+def test_best_gpu_picks_largest_vram():
+    info = HardwareInfo(
+        os="x", cpu="x", arch="x", cores_physical=4, cores_logical=8,
+        ram_total_gb=16, ram_available_gb=8, disk_free_gb=100,
+        gpus=[
+            GpuInfo(vendor="intel", name="iGPU", vram_gb=None, kind="integrated"),
+            GpuInfo(vendor="nvidia", name="RTX", vram_gb=12.0),
+        ],
+    )
+    assert info.best_gpu is not None and info.best_gpu.name == "RTX"
+    # No usable VRAM anywhere -> None (calculator falls back to CPU budget).
+    info.gpus = [GpuInfo(vendor="amd", name="Radeon", vram_gb=None)]
+    assert info.best_gpu is None
 
 
 # --- calculator ---

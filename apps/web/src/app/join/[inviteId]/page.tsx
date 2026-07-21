@@ -3,8 +3,9 @@
 import { use } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { BookOpenText, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LoreMark } from "@/components/lore-mark";
 import { useMe } from "@/hooks/use-auth";
 import { useAcceptInvite, useInvitePreview } from "@/hooks/use-workspaces";
 import { LoadingScreen } from "@/components/loading-screen";
@@ -80,9 +81,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
         className="flex w-full max-w-sm flex-col items-center gap-4 text-center"
       >
-        <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <BookOpenText className="size-5" aria-hidden />
-        </div>
+        <LoreMark className="mb-2 size-10 text-foreground" />
         {children}
       </motion.div>
     </main>
