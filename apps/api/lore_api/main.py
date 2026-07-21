@@ -11,12 +11,14 @@ from .collab import make_server
 from .config import get_settings
 from .db import engine
 from .routers import (
+    agent,
     ai,
     assistant,
     auth,
     collab,
     databases,
     documents,
+    inline,
     pages,
     search,
     workspaces,
@@ -42,6 +44,8 @@ app.include_router(databases.router)
 app.include_router(search.router)
 app.include_router(ai.router)
 app.include_router(assistant.router)
+app.include_router(agent.router)
+app.include_router(inline.router)
 
 app.add_middleware(
     CORSMiddleware,
