@@ -15,8 +15,18 @@ export async function blocksToMarkdown(blocks: Block[]): Promise<string> {
   return headless().blocksToMarkdownLossy(blocks);
 }
 
+/**
+ * An empty task item only parses as a checkbox when the `[ ]` is followed by a
+ * space — BlockNote's importer matches `[ ] ` including the trailing space, so a
+ * line ending in exactly `- [ ]` falls through to a bullet with literal "[ ]"
+ * text. Models emit both forms, so normalise before parsing.
+ */
+function padEmptyTaskItems(markdown: string): string {
+  return markdown.replace(/^([ \t]*(?:[-*+]|\d+[.)])[ \t]+\[[ xX]\])[ \t]*$/gm, "$1 ");
+}
+
 export async function markdownToBlocks(markdown: string): Promise<Block[]> {
-  return headless().tryParseMarkdownToBlocks(markdown);
+  return headless().tryParseMarkdownToBlocks(padEmptyTaskItems(markdown));
 }
 
 // --- export ---

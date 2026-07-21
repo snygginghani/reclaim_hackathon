@@ -14,6 +14,18 @@ from ..blocks import blocks_to_text
 from ..models import Document, Page
 from .retrieval import hybrid_search
 
+# Everything listed here survives the frontend's markdown -> BlockNote conversion
+# (see apps/web/src/lib/markdown.ts); spelling it out is what makes the model
+# actually reach for checklists instead of flattening everything into bullets.
+MARKDOWN_HINT = (
+    "Page body as markdown. Build a structured document, not a wall of text: "
+    "`#`/`##` headings for sections, `- [ ] item` for checklists (use these for "
+    "anything the user will tick off — tasks, sets, steps, packing lists), "
+    "`-` bullets, `1.` numbered lists, `**bold**`, and `> ` quotes. "
+    "Nest list items by indenting two spaces. "
+    "Keep it to the essentials, roughly 20-30 lines."
+)
+
 # Tool schemas in the OpenAI/Ollama function-calling format.
 TOOL_SCHEMAS = [
     {
@@ -52,12 +64,12 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "create_page",
-            "description": "PROPOSE creating a new page. Requires user approval. Content is markdown.",
+            "description": "PROPOSE creating a new page. Requires user approval.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "title": {"type": "string"},
-                    "content_markdown": {"type": "string"},
+                    "content_markdown": {"type": "string", "description": MARKDOWN_HINT},
                 },
                 "required": ["title", "content_markdown"],
             },
@@ -72,7 +84,7 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "page_id": {"type": "string"},
-                    "content_markdown": {"type": "string"},
+                    "content_markdown": {"type": "string", "description": MARKDOWN_HINT},
                 },
                 "required": ["page_id", "content_markdown"],
             },
