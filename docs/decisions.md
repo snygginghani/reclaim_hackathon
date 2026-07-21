@@ -67,3 +67,12 @@ The provider panel now shows a live spec sheet (CPU/RAM-meter/GPU-VRAM-meter/dis
 
 ## 6.6 — Rebrand to the hexagram Lore mark; mobile sidebar is now a drawer
 Replaced the book icon with `<LoreMark>` everywhere + SVG favicon. Fixed a real responsive bug: below md the 260px sidebar crushed content into an unusable strip — it is now an off-canvas overlay drawer (hamburger to open, scrim/X/link-tap to close) while desktop keeps the in-flow collapsible column. Drawer dismissal on navigation is handled by an onClick link check, not a pathname effect (avoids setState-in-effect).
+
+## 7.1 — Ask Lore is a docked panel; citations jump to the exact block
+The assistant is a right-side dock (⌘J), coexisting with the sidebar + editor. Answers render [n] markers as clickable chips resolved against the streamed sources; clicking one navigates to the page and flashes the source block via a small highlight store the editor subscribes to (targets BlockNote `data-id`). Scope is derived (workspace vs current page) not held in an effect.
+
+## 7.2 — Notebook generators reuse the frontend markdown→blocks path
+/api/ai/generate streams markdown; the panel converts it with the existing BlockNote markdownToBlocks and creates a real page, rather than teaching the backend to emit BlockNote JSON. Citation markers are stripped from the generated page body.
+
+## 7.3 — Memory is user-owned and transparent
+Per-user, per-workspace facts, auto-distilled after each exchange by the fast model (best-effort, deduped) and fully editable in Settings → Lore's memory. Retrieved into every chat's system prompt. Verified: manual add/edit/delete + reindex work with no LLM; the full grounded-chat-with-citations path is covered by a fake-provider test.
