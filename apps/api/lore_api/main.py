@@ -7,7 +7,7 @@ from sqlalchemy import text
 from .collab import make_server
 from .config import get_settings
 from .db import engine
-from .routers import auth, collab, databases, documents, pages, search, workspaces
+from .routers import ai, auth, collab, databases, documents, pages, search, workspaces
 
 
 @asynccontextmanager
@@ -25,6 +25,7 @@ app.include_router(documents.router)
 app.include_router(collab.router)
 app.include_router(databases.router)
 app.include_router(search.router)
+app.include_router(ai.router)
 
 app.add_middleware(
     CORSMiddleware,
