@@ -22,6 +22,13 @@ async def _create_test_database():
         await conn.execute("CREATE DATABASE lore_test")
     await conn.close()
 
+    # pgvector must be enabled before create_all builds the chunks.embedding column.
+    test_conn = await asyncpg.connect(
+        user="lore", password="lore_dev_password", host="localhost", port=5433, database="lore_test"
+    )
+    await test_conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
+    await test_conn.close()
+
     async with engine.begin() as db:
         await db.run_sync(Base.metadata.drop_all)
         await db.run_sync(Base.metadata.create_all)

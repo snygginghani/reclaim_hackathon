@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel, ConfigDict
 
+from ..ai.ingest import ingest_page
 from ..blocks import blocks_to_text
 from ..deps import CurrentUser, DbSession
 from ..models import Document
@@ -36,16 +37,26 @@ async def get_content(page_id: uuid.UUID, user: CurrentUser, db: DbSession) -> D
 
 @router.put("/{page_id}/content", response_model=DocumentOut)
 async def put_content(
-    page_id: uuid.UUID, body: DocumentIn, user: CurrentUser, db: DbSession
+    page_id: uuid.UUID,
+    body: DocumentIn,
+    user: CurrentUser,
+    db: DbSession,
+    background: BackgroundTasks,
 ) -> Document:
     await _get_page_checked(db, page_id, user.id, min_role="editor")
     text = blocks_to_text(body.blocks)
     doc = await db.get(Document, page_id)
+    changed = True
     if doc is None:
         doc = Document(page_id=page_id, blocks=body.blocks, text_content=text)
         db.add(doc)
     else:
+        changed = doc.text_content != text
         doc.blocks = body.blocks
         doc.text_content = text
     await db.commit()
+    # Re-embed only when the searchable text actually changed (keystroke-rate
+    # autosaves that don't alter text — e.g. selection — skip the work).
+    if changed:
+        background.add_task(ingest_page, page_id)
     return doc
