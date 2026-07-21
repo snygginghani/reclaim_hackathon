@@ -4,14 +4,29 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
+import asyncio
+
+from .ai.embeddings import warm
 from .collab import make_server
 from .config import get_settings
 from .db import engine
-from .routers import ai, auth, collab, databases, documents, pages, search, workspaces
+from .routers import (
+    ai,
+    assistant,
+    auth,
+    collab,
+    databases,
+    documents,
+    pages,
+    search,
+    workspaces,
+)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Load the embedding model off the event loop so the first chat isn't slow.
+    asyncio.get_event_loop().run_in_executor(None, warm)
     async with make_server() as collab_server:
         app.state.collab_server = collab_server
         yield
@@ -26,6 +41,7 @@ app.include_router(collab.router)
 app.include_router(databases.router)
 app.include_router(search.router)
 app.include_router(ai.router)
+app.include_router(assistant.router)
 
 app.add_middleware(
     CORSMiddleware,
