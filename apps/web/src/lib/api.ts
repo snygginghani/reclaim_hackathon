@@ -1,5 +1,13 @@
-/** Base URL of the Lore API. All fetches go through `api()` so auth and errors are handled once. */
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8300";
+/** Base URL of the Lore API. All fetches go through `api()` so auth and errors are handled once.
+ * Defaults to the API on the same host that served this page (LAN-friendly, no per-network
+ * config); set NEXT_PUBLIC_API_URL to override when the API lives on a different host. */
+function resolveApiUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window !== "undefined") return `http://${window.location.hostname}:8300`;
+  return "http://localhost:8300";
+}
+
+export const API_URL = resolveApiUrl();
 
 export class ApiError extends Error {
   constructor(
