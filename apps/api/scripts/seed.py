@@ -1,6 +1,6 @@
 """Seed a realistic demo workspace. Run from apps/api:  uv run python scripts/seed.py
 
-Creates a demo user (demo@lore.local / demo-password-1) with a workspace of
+Creates a demo user (demo@example.com / demo-password-1) with a workspace of
 nested pages, a database with rows, and document content — enough to explore
 every feature (and to give the AI assistant something to cite once a model is
 configured). Idempotent: re-running resets the demo user's data.
@@ -29,7 +29,7 @@ from lore_api.models import (  # noqa: E402
 )
 from lore_api.security import hash_password  # noqa: E402
 
-DEMO_EMAIL = "demo@lore.local"
+DEMO_EMAIL = "demo@example.com"
 
 
 def para(text: str) -> dict:
