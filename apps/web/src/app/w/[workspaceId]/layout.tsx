@@ -3,6 +3,7 @@
 import { use, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/sidebar/sidebar";
+import { CommandPalette } from "@/components/command-palette";
 import { LoadingScreen } from "@/components/loading-screen";
 import { useMe } from "@/hooks/use-auth";
 import { useUiStore } from "@/stores/ui";
@@ -49,6 +50,7 @@ export default function WorkspaceLayout({
     <div className="flex min-h-dvh">
       <Sidebar workspaceId={workspaceId} />
       <main className="flex min-w-0 flex-1 flex-col">{children}</main>
+      <CommandPalette workspaceId={workspaceId} />
     </div>
   );
 }

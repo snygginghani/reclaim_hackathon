@@ -120,6 +120,9 @@ class Document(Base):
         ForeignKey("pages.id", ondelete="CASCADE"), primary_key=True
     )
     blocks: Mapped[list] = mapped_column(JSONB, default=list)
+    # Plain text extracted from `blocks` on every save — the substrate for
+    # full-text search now and embedding chunks in the RAG pipeline.
+    text_content: Mapped[str] = mapped_column(Text, default="", server_default="")
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

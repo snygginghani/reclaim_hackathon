@@ -18,6 +18,7 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 export function Sidebar({ workspaceId }: { workspaceId: string }) {
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const setCollapsed = useUiStore((s) => s.setSidebarCollapsed);
+  const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
   const [trashOpen, setTrashOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
 
@@ -54,8 +55,9 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
 
             <div className="w-[260px] px-2">
               <button
+                onClick={() => setPaletteOpen(true)}
                 className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                aria-label="Search (coming with Cmd+K in Phase 5)"
+                aria-label="Search"
               >
                 <Search className="size-4" />
                 Search
