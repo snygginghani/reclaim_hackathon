@@ -6,19 +6,26 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BookText,
+  Check,
   ChevronDown,
+  Database,
+  FilePlus2,
   FileText,
   History,
   Loader2,
+  MessageSquare,
   Plus,
+  Search,
   Send,
   Sparkles,
   Trash2,
+  Wand2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LoreMark } from "@/components/lore-mark";
 import { Answer, SourceList } from "./answer";
+import { applyApproval, type Approval } from "@/lib/agent-apply";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,8 +53,19 @@ type StreamEvent =
   | { type: "conversation"; id: string }
   | { type: "sources"; sources: Citation[] }
   | { type: "text"; text: string }
+  | { type: "tool"; name: string; args: Record<string, unknown> }
+  | { type: "approval"; tool: string; args: Record<string, unknown>; preview: Approval["preview"] }
   | { type: "error"; error: string }
-  | { type: "done"; citations: Citation[] };
+  | { type: "done"; citations?: Citation[] };
+
+type ApprovalState = Approval & {
+  status: "pending" | "applying" | "applied" | "rejected";
+};
+
+type PanelMessage = ChatMessage & {
+  tools?: string[];
+  approvals?: ApprovalState[];
+};
 
 const GENERATORS = [
   { kind: "summary", label: "Summary" },
@@ -66,9 +84,10 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
 
   const currentPageId = pathname.match(/\/p\/([0-9a-f-]{8,})/)?.[1] ?? null;
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<PanelMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
+  const [mode, setMode] = useState<"ask" | "agent">("ask");
   const [scope, setScope] = useState<"workspace" | "page">("workspace");
   const [streaming, setStreaming] = useState(false);
   const [streamText, setStreamText] = useState("");
@@ -117,19 +136,28 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
     setStreamText("");
     setStreamSources([]);
     abortRef.current = new AbortController();
+    try {
+      if (mode === "agent") await runAgent(text);
+      else await runAsk(text);
+    } finally {
+      setStreaming(false);
+      setStreamText("");
+      setStreamSources([]);
+    }
+  };
 
+  const runAsk = async (text: string) => {
     const scopeBody =
       effectiveScope === "page" && currentPageId
         ? { type: "page", page_ids: [currentPageId] }
         : { type: "workspace" };
-
     let acc = "";
     let used: Citation[] = [];
     try {
       for await (const ev of sseStream<StreamEvent>(
         "/api/ai/chat",
         { workspace_id: workspaceId, message: text, scope: scopeBody, conversation_id: conversationId },
-        abortRef.current.signal
+        abortRef.current!.signal
       )) {
         if (ev.type === "conversation") setConversationId(ev.id);
         else if (ev.type === "sources") setStreamSources(ev.sources);
@@ -137,22 +165,74 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
           acc += ev.text;
           setStreamText(acc);
         } else if (ev.type === "error") throw new Error(ev.error);
-        else if (ev.type === "done") used = ev.citations;
+        else if (ev.type === "done") used = ev.citations ?? [];
       }
       setMessages((m) => [...m, { role: "assistant", content: acc, citations: used }]);
       qc.invalidateQueries({ queryKey: ["conversations", workspaceId] });
     } catch (e) {
-      if (!(e instanceof DOMException && e.name === "AbortError")) {
-        const msg = e instanceof Error ? e.message : "The assistant didn’t respond";
-        setMessages((m) => [
-          ...m,
-          { role: "assistant", content: `⚠️ ${msg}`, citations: [] },
-        ]);
+      appendError(e);
+    }
+  };
+
+  const runAgent = async (text: string) => {
+    let acc = "";
+    const tools: string[] = [];
+    const approvals: ApprovalState[] = [];
+    try {
+      for await (const ev of sseStream<StreamEvent>(
+        "/api/ai/agent",
+        { workspace_id: workspaceId, message: text },
+        abortRef.current!.signal
+      )) {
+        if (ev.type === "text") {
+          acc += ev.text;
+          setStreamText(acc);
+        } else if (ev.type === "tool") {
+          tools.push(ev.name);
+        } else if (ev.type === "approval") {
+          approvals.push({ tool: ev.tool, args: ev.args, preview: ev.preview, status: "pending" });
+        } else if (ev.type === "error") throw new Error(ev.error);
       }
-    } finally {
-      setStreaming(false);
-      setStreamText("");
-      setStreamSources([]);
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: acc, citations: [], tools, approvals },
+      ]);
+    } catch (e) {
+      appendError(e);
+    }
+  };
+
+  const appendError = (e: unknown) => {
+    if (e instanceof DOMException && e.name === "AbortError") return;
+    const msg = e instanceof Error ? e.message : "The assistant didn’t respond";
+    setMessages((m) => [...m, { role: "assistant", content: `⚠️ ${msg}`, citations: [] }]);
+  };
+
+  const decideApproval = async (msgIndex: number, apprIndex: number, approve: boolean) => {
+    const setStatus = (status: ApprovalState["status"]) =>
+      setMessages((m) =>
+        m.map((msg, i) => {
+          if (i !== msgIndex || !msg.approvals) return msg;
+          const next = msg.approvals.map((a, j) => (j === apprIndex ? { ...a, status } : a));
+          return { ...msg, approvals: next };
+        })
+      );
+    if (!approve) {
+      setStatus("rejected");
+      return;
+    }
+    const approval = messages[msgIndex]?.approvals?.[apprIndex];
+    if (!approval) return;
+    setStatus("applying");
+    try {
+      const { pageId } = await applyApproval(workspaceId, approval);
+      setStatus("applied");
+      qc.invalidateQueries({ queryKey: ["pages", workspaceId] });
+      toast.success(`${approval.preview.action} done`);
+      if (pageId) router.push(`/w/${workspaceId}/p/${pageId}`);
+    } catch {
+      setStatus("pending");
+      toast.error("Couldn’t apply that change");
     }
   };
 
@@ -192,7 +272,7 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
   };
 
   return (
-    <AnimatePresence>
+    <AnimatePresence initial={false}>
       {open && (
         <motion.aside
           initial={{ width: 0, opacity: 0 }}
@@ -219,22 +299,36 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
               </div>
             </div>
 
-            {/* scope */}
-            <div className="flex items-center gap-1 border-b px-3 py-2">
-              <span className="text-xs text-muted-foreground">Scope</span>
-              <ScopePill
-                active={effectiveScope === "workspace"}
-                onClick={() => setScope("workspace")}
-              >
-                Whole workspace
-              </ScopePill>
-              <ScopePill
-                active={effectiveScope === "page"}
-                disabled={!currentPageId}
-                onClick={() => currentPageId && setScope("page")}
-              >
-                This page
-              </ScopePill>
+            {/* mode + scope */}
+            <div className="flex items-center gap-2 border-b px-3 py-2">
+              <div className="flex rounded-lg bg-secondary p-0.5">
+                <ModeBtn active={mode === "ask"} onClick={() => setMode("ask")} icon={MessageSquare}>
+                  Ask
+                </ModeBtn>
+                <ModeBtn active={mode === "agent"} onClick={() => setMode("agent")} icon={Wand2}>
+                  Agent
+                </ModeBtn>
+              </div>
+              {mode === "ask" && (
+                <div className="ml-auto flex items-center gap-1">
+                  <ScopePill
+                    active={effectiveScope === "workspace"}
+                    onClick={() => setScope("workspace")}
+                  >
+                    Workspace
+                  </ScopePill>
+                  <ScopePill
+                    active={effectiveScope === "page"}
+                    disabled={!currentPageId}
+                    onClick={() => currentPageId && setScope("page")}
+                  >
+                    This page
+                  </ScopePill>
+                </div>
+              )}
+              {mode === "agent" && (
+                <span className="ml-auto text-xs text-muted-foreground">Proposes edits you approve</span>
+              )}
             </div>
 
             {showHistory ? (
@@ -277,7 +371,12 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
                 ) : (
                   <div className="flex flex-col gap-4">
                     {messages.map((m, i) => (
-                      <MessageBubble key={i} message={m} onCite={onCite} />
+                      <MessageBubble
+                        key={i}
+                        message={m}
+                        onCite={onCite}
+                        onDecide={(ai, approve) => decideApproval(i, ai, approve)}
+                      />
                     ))}
                     {streaming && (
                       <div className="flex flex-col gap-1">
@@ -308,7 +407,7 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
                     }
                   }}
                   rows={1}
-                  placeholder="Ask about your workspace…"
+                  placeholder={mode === "agent" ? "Tell Lore what to do…" : "Ask about your workspace…"}
                   className="max-h-32 min-h-8 flex-1 resize-none bg-transparent px-2 py-1 text-sm outline-none"
                 />
                 {streaming ? (
@@ -338,7 +437,15 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
   );
 }
 
-function MessageBubble({ message, onCite }: { message: ChatMessage; onCite: (c: Citation) => void }) {
+function MessageBubble({
+  message,
+  onCite,
+  onDecide,
+}: {
+  message: PanelMessage;
+  onCite: (c: Citation) => void;
+  onDecide: (approvalIndex: number, approve: boolean) => void;
+}) {
   if (message.role === "user") {
     return (
       <div className="ml-6 self-end rounded-xl rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground">
@@ -347,10 +454,132 @@ function MessageBubble({ message, onCite }: { message: ChatMessage; onCite: (c: 
     );
   }
   return (
-    <div className="flex flex-col">
-      <Answer content={message.content} citations={message.citations} onCite={onCite} />
+    <div className="flex flex-col gap-2">
+      {message.tools && message.tools.length > 0 && <ToolChips tools={message.tools} />}
+      {message.content.trim() && (
+        <Answer content={message.content} citations={message.citations} onCite={onCite} />
+      )}
       <SourceList citations={message.citations} onCite={onCite} />
+      {message.approvals?.map((a, i) => (
+        <ApprovalCard key={i} approval={a} onDecide={(approve) => onDecide(i, approve)} />
+      ))}
     </div>
+  );
+}
+
+const TOOL_LABELS: Record<string, string> = {
+  search_workspace: "Searched the workspace",
+  read_page: "Read a page",
+  list_pages: "Listed pages",
+};
+
+function ToolChips({ tools }: { tools: string[] }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {tools.map((t, i) => (
+        <span
+          key={i}
+          className="flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground"
+        >
+          <Search className="size-3" />
+          {TOOL_LABELS[t] ?? t}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+const APPROVAL_ICON: Record<string, React.ElementType> = {
+  create_page: FilePlus2,
+  append_to_page: FileText,
+  create_database: Database,
+};
+
+function ApprovalCard({
+  approval,
+  onDecide,
+}: {
+  approval: ApprovalState;
+  onDecide: (approve: boolean) => void;
+}) {
+  const Icon = APPROVAL_ICON[approval.tool] ?? Wand2;
+  return (
+    <div
+      className={cn(
+        "rounded-xl border p-3 transition-colors",
+        approval.status === "applied" && "border-success/40 bg-success/5",
+        approval.status === "rejected" && "border-border bg-muted/30 opacity-60",
+        approval.status === "pending" && "border-ai/30 bg-ai-soft"
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <Icon className="size-4 shrink-0 text-ai" />
+        <span className="text-sm font-medium">
+          {approval.preview.action}
+          {approval.preview.title ? `: ${approval.preview.title}` : ""}
+        </span>
+      </div>
+      {approval.preview.summary && (
+        <p className="mt-1.5 max-h-32 overflow-y-auto whitespace-pre-wrap rounded-md bg-background/60 p-2 text-xs text-muted-foreground">
+          {approval.preview.summary}
+        </p>
+      )}
+      {approval.status === "pending" && (
+        <div className="mt-2.5 flex gap-2">
+          <button
+            onClick={() => onDecide(true)}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-ai px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+          >
+            <Check className="size-4" />
+            Approve
+          </button>
+          <button
+            onClick={() => onDecide(false)}
+            className="flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary"
+          >
+            Reject
+          </button>
+        </div>
+      )}
+      {approval.status === "applying" && (
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Loader2 className="size-3.5 animate-spin" /> Applying…
+        </p>
+      )}
+      {approval.status === "applied" && (
+        <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-success">
+          <Check className="size-3.5" /> Applied
+        </p>
+      )}
+      {approval.status === "rejected" && (
+        <p className="mt-2 text-xs text-muted-foreground">Rejected</p>
+      )}
+    </div>
+  );
+}
+
+function ModeBtn({
+  active,
+  onClick,
+  icon: Icon,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ElementType;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+        active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+      )}
+    >
+      <Icon className="size-3.5" />
+      {children}
+    </button>
   );
 }
 
