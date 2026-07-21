@@ -76,3 +76,12 @@ The assistant is a right-side dock (⌘J), coexisting with the sidebar + editor.
 
 ## 7.3 — Memory is user-owned and transparent
 Per-user, per-workspace facts, auto-distilled after each exchange by the fast model (best-effort, deduped) and fully editable in Settings → Lore's memory. Retrieved into every chat's system prompt. Verified: manual add/edit/delete + reindex work with no LLM; the full grounded-chat-with-citations path is covered by a fake-provider test.
+
+## 8.1 — Agent proposes, the frontend applies
+The agent loop never mutates the workspace: read tools run server-side inline; write tools emit approval cards with a preview, and the panel executes approved actions through the existing page/database APIs (reusing the frontend markdown→blocks path). This keeps a human in the loop for every write and needs no new server apply endpoint.
+
+## 8.2 — Selection AI menu via BlockNote's custom formatting toolbar
+FormattingToolbarController + getFormattingToolbarItems() compose the default toolbar with a custom AI button; rewrites stream from /api/ai/rewrite and replace the selection through the underlying Tiptap editor's insertContent. Ghost-text autocomplete has a working backend (/api/ai/autocomplete via the fast model) and is wired for a Phase 9 inline-decoration UI.
+
+## 8.3 — Bug: persisted assistant-open panel needs AnimatePresence initial={false}
+Persisting assistantOpen meant the panel could be present on first render; without initial={false} the width-enter animation left it stuck at 0px. Matched the sidebar's pattern so an already-open panel renders at full width and toggles still animate. (Real regression, found and fixed by measuring the panel width live.)

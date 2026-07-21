@@ -3,8 +3,14 @@
 import { useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCreateBlockNote } from "@blocknote/react";
+import {
+  FormattingToolbar,
+  FormattingToolbarController,
+  getFormattingToolbarItems,
+  useCreateBlockNote,
+} from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/shadcn";
+import { AiToolbarButton } from "./ai-toolbar-button";
 import type { Block } from "@blocknote/core";
 import "@blocknote/shadcn/style.css";
 import { api, API_URL } from "@/lib/api";
@@ -245,8 +251,18 @@ function CollabEditor({
       editable={editable}
       theme={resolvedTheme === "dark" ? "dark" : "light"}
       onChange={handleChange}
+      formattingToolbar={false}
       className="lore-editor mt-4"
       data-testid="page-editor"
-    />
+    >
+      <FormattingToolbarController
+        formattingToolbar={() => (
+          <FormattingToolbar>
+            <AiToolbarButton key="ai" />
+            {getFormattingToolbarItems()}
+          </FormattingToolbar>
+        )}
+      />
+    </BlockNoteView>
   );
 }
