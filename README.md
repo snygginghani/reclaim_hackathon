@@ -48,7 +48,7 @@ powershell -File scripts/dev.ps1
 ```
 
 - Web: http://localhost:3000  ·  API docs: http://localhost:8300/docs
-- Demo login (after seeding): `demo@lore.local` / `demo-password-1`
+- Demo login (after seeding): `demo@example.com` / `demo-password-1`
 
 To enable AI chat, open **Settings → AI** in the app and either install a
 recommended local model (needs [Ollama](https://ollama.com/download)) or paste an
