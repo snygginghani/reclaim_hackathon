@@ -46,3 +46,6 @@ Filters/sorts/grouping run in the browser (lib/database-query.ts) over the full 
 
 ## 4.3 — Row deletion is hard delete
 Rows skip the page trash: restoring individual grid rows piecemeal is more confusing than helpful, and the grid UX expects immediate removal. Docs/databases keep the trash flow.
+
+## 5.1 — Search ships FTS-first; the semantic leg joins with the RAG pipeline
+/api/search runs Postgres FTS (websearch_to_tsquery + ts_headline snippets with [[..]] markers) over titles + text extracted from BlockNote JSON on every save (documents.text_content, GIN-indexed), with an ILIKE fallback so prefix typing hits titles instantly. pgvector fusion (RRF) lands in the same endpoint once Phase 7's embedding ingestion exists — sequencing, not scope reduction. The palette also merges instant client-side title matches ahead of the server round-trip.

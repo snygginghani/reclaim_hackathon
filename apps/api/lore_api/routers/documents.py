@@ -4,6 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict
 
+from ..blocks import blocks_to_text
 from ..deps import CurrentUser, DbSession
 from ..models import Document
 from .pages import _get_page_checked
@@ -38,11 +39,13 @@ async def put_content(
     page_id: uuid.UUID, body: DocumentIn, user: CurrentUser, db: DbSession
 ) -> Document:
     await _get_page_checked(db, page_id, user.id, min_role="editor")
+    text = blocks_to_text(body.blocks)
     doc = await db.get(Document, page_id)
     if doc is None:
-        doc = Document(page_id=page_id, blocks=body.blocks)
+        doc = Document(page_id=page_id, blocks=body.blocks, text_content=text)
         db.add(doc)
     else:
         doc.blocks = body.blocks
+        doc.text_content = text
     await db.commit()
     return doc

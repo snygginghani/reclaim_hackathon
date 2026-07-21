@@ -10,6 +10,8 @@ interface UiState {
   setExpanded: (pageId: string, value: boolean) => void;
   sidebarCollapsed: boolean;
   setSidebarCollapsed: (v: boolean) => void;
+  paletteOpen: boolean;
+  setPaletteOpen: (v: boolean) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -22,7 +24,12 @@ export const useUiStore = create<UiState>()(
         set((s) => ({ expanded: { ...s.expanded, [pageId]: value } })),
       sidebarCollapsed: false,
       setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
+      paletteOpen: false,
+      setPaletteOpen: (v) => set({ paletteOpen: v }),
     }),
-    { name: "lore:ui" }
+    {
+      name: "lore:ui",
+      partialize: (s) => ({ expanded: s.expanded, sidebarCollapsed: s.sidebarCollapsed }),
+    }
   )
 );
