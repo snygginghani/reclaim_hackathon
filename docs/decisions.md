@@ -49,3 +49,12 @@ Rows skip the page trash: restoring individual grid rows piecemeal is more confu
 
 ## 5.1 — Search ships FTS-first; the semantic leg joins with the RAG pipeline
 /api/search runs Postgres FTS (websearch_to_tsquery + ts_headline snippets with [[..]] markers) over titles + text extracted from BlockNote JSON on every save (documents.text_content, GIN-indexed), with an ILIKE fallback so prefix typing hits titles instantly. pgvector fusion (RRF) lands in the same endpoint once Phase 7's embedding ingestion exists — sequencing, not scope reduction. The palette also merges instant client-side title matches ahead of the server round-trip.
+
+## 6.1 — AI settings are workspace-scoped; keys encrypted with Fernet
+ai_settings lives per workspace (the assistant is a collaboration feature); only owners write, members read a key-free view. The OpenRouter key is validated live (GET /key) before being Fernet-encrypted at rest with a key derived from the app secret; it is never returned to clients.
+
+## 6.2 — Featured cloud models resolve by pattern against the live catalog
+Never hardcode model ids: /api/ai/openrouter/models fetches the live catalog and matches DeepSeek V4 Pro/Flash, Claude Sonnet 5 / Opus 4.8 / Fable 5 by regex (shortest-id wins over :variants) plus the newest non-audio OpenAI GPT by created timestamp. Verified against the real catalog: all six resolve today.
+
+## 6.3 — The calculator is the contract
+hardware_calc.py is pure and unit-pinned: Q4 footprint = params×0.55GB + 1.5GB KV@8k; budget = VRAM×0.9 (GPU) or available-RAM×0.6 (CPU). Non-NVIDIA VRAM is reported as unknown rather than guessed (Windows lies about AdapterRAM) — such GPUs fall back to the CPU path instead of poisoning fits. Verified on real hardware: RTX 4060 8GB → Llama/Qwen 8B "GPU · fast" with correct arithmetic in the reasoning strings.

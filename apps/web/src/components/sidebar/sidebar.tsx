@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { PanelLeftClose, PanelLeftOpen, Search, Trash2 } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Search, Sparkles, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -72,6 +73,13 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
             </ScrollArea>
 
             <div className="w-[260px] border-t p-2">
+              <Link
+                href={`/w/${workspaceId}/settings/ai`}
+                className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <Sparkles className="size-4" />
+                AI settings
+              </Link>
               <ImportButton workspaceId={workspaceId} />
               <button
                 onClick={() => setTrashOpen(true)}

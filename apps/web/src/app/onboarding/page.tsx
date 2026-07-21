@@ -25,7 +25,8 @@ export default function OnboardingPage() {
     try {
       const ws = await createWorkspace.mutateAsync({ name: name.trim(), icon });
       window.localStorage.setItem("lore:last-workspace", ws.id);
-      router.replace(`/w/${ws.id}`);
+      // First-run flow continues into the AI setup wizard.
+      router.replace(`/w/${ws.id}/settings/ai?setup=1`);
     } catch {
       setError("Could not create the workspace. Please try again.");
     }
