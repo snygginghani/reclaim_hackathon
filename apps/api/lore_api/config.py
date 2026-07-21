@@ -11,6 +11,13 @@ class Settings(BaseSettings):
     access_token_ttl_seconds: int = 60 * 15
     refresh_token_ttl_seconds: int = 60 * 60 * 24 * 30
     cors_origins: list[str] = ["http://localhost:3000"]
+    # Matches the web app on any private-LAN address (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+    # on port 3000, so a dev instance is reachable from other machines on the same network
+    # without hardcoding any one IP.
+    cors_origin_regex: str = (
+        r"^http://(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+        r"|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}):3000$"
+    )
     upload_dir: str = "uploads"
 
 
