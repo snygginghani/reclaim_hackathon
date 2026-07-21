@@ -12,6 +12,8 @@ interface UiState {
   setSidebarCollapsed: (v: boolean) => void;
   paletteOpen: boolean;
   setPaletteOpen: (v: boolean) => void;
+  assistantOpen: boolean;
+  setAssistantOpen: (v: boolean) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -26,10 +28,16 @@ export const useUiStore = create<UiState>()(
       setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
       paletteOpen: false,
       setPaletteOpen: (v) => set({ paletteOpen: v }),
+      assistantOpen: false,
+      setAssistantOpen: (v) => set({ assistantOpen: v }),
     }),
     {
       name: "lore:ui",
-      partialize: (s) => ({ expanded: s.expanded, sidebarCollapsed: s.sidebarCollapsed }),
+      partialize: (s) => ({
+        expanded: s.expanded,
+        sidebarCollapsed: s.sidebarCollapsed,
+        assistantOpen: s.assistantOpen,
+      }),
     }
   )
 );

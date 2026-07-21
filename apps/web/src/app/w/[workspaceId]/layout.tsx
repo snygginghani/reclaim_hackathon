@@ -4,6 +4,8 @@ import { use, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { CommandPalette } from "@/components/command-palette";
+import { AskLorePanel } from "@/components/assistant/ask-lore-panel";
+import { AssistantToggle } from "@/components/assistant/assistant-toggle";
 import { LoadingScreen } from "@/components/loading-screen";
 import { useMe } from "@/hooks/use-auth";
 import { useUiStore } from "@/stores/ui";
@@ -30,13 +32,18 @@ export default function WorkspaceLayout({
     window.localStorage.setItem("lore:last-workspace", workspaceId);
   }, [workspaceId]);
 
-  // ⌘\ / Ctrl+\ toggles the sidebar.
+  // ⌘\ toggles the sidebar; ⌘J toggles Ask Lore.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "\\" && (e.metaKey || e.ctrlKey)) {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === "\\") {
         e.preventDefault();
         const s = useUiStore.getState();
         s.setSidebarCollapsed(!s.sidebarCollapsed);
+      } else if (e.key.toLowerCase() === "j") {
+        e.preventDefault();
+        const s = useUiStore.getState();
+        s.setAssistantOpen(!s.assistantOpen);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -50,6 +57,8 @@ export default function WorkspaceLayout({
     <div className="flex min-h-dvh">
       <Sidebar workspaceId={workspaceId} />
       <main className="flex min-w-0 flex-1 flex-col">{children}</main>
+      <AskLorePanel workspaceId={workspaceId} />
+      <AssistantToggle />
       <CommandPalette workspaceId={workspaceId} />
     </div>
   );
