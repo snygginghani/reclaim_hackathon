@@ -58,3 +58,12 @@ Never hardcode model ids: /api/ai/openrouter/models fetches the live catalog and
 
 ## 6.3 — The calculator is the contract
 hardware_calc.py is pure and unit-pinned: Q4 footprint = params×0.55GB + 1.5GB KV@8k; budget = VRAM×0.9 (GPU) or available-RAM×0.6 (CPU). Non-NVIDIA VRAM is reported as unknown rather than guessed (Windows lies about AdapterRAM) — such GPUs fall back to the CPU path instead of poisoning fits. Verified on real hardware: RTX 4060 8GB → Llama/Qwen 8B "GPU · fast" with correct arithmetic in the reasoning strings.
+
+## 6.4 — Hardware specifier rebuilt for real accuracy
+The probe now reports the marketing CPU name (winreg ProcessorNameString / sysctl / /proc/cpuinfo), physical+logical core counts, and accurate VRAM for every GPU. On Windows, VRAM comes from the driver registry's HardwareInformation.qwMemorySize (what GPU-Z reads) rather than Win32_VideoController.AdapterRAM, which is a uint32 that silently caps at 4 GB. NVIDIA still goes through NVML (authoritative); non-NVIDIA cards whose VRAM genuinely can't be read report None and fall back to the CPU budget rather than being guessed. Verified on the dev machine: i5-12400F (6C/12T) + RTX 4060 8 GB, all correct.
+
+## 6.5 — AI settings redesigned to feel real (not "fake")
+The provider panel now shows a live spec sheet (CPU/RAM-meter/GPU-VRAM-meter/disk) built from the real probe, an Ollama connected/offline pill, and recommendation cards whose reasoning names the detected GPU with the actual fit arithmetic. This replaced a flat pill row that read as placeholder.
+
+## 6.6 — Rebrand to the hexagram Lore mark; mobile sidebar is now a drawer
+Replaced the book icon with `<LoreMark>` everywhere + SVG favicon. Fixed a real responsive bug: below md the 260px sidebar crushed content into an unusable strip — it is now an off-canvas overlay drawer (hamburger to open, scrim/X/link-tap to close) while desktop keeps the in-flow collapsible column. Drawer dismissal on navigation is handled by an onClick link check, not a pathname effect (avoids setState-in-effect).

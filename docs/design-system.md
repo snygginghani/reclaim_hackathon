@@ -3,6 +3,15 @@
 Source of truth for every visual decision in `apps/web`. Generated with the `ui-ux-pro-max` skill
 (persisted raw output in `design-system/lore/MASTER.md`), then synthesized by hand — see decision 0.6.
 
+## Brand mark
+
+The Lore mark is a rounded hexagon enclosing a hexagram (Star of David / d20 silhouette) with a
+serif **L** at its centre — stark, monochrome, faintly occult. It lives in
+`apps/web/src/components/lore-mark.tsx` as `<LoreMark>`, drawn in `currentColor` so it inverts
+cleanly between themes (white-on-dark, dark-on-light). Used on the auth, loading, and join
+surfaces in `text-foreground` — no indigo container; the mark stands alone. The browser favicon
+(`apps/web/src/app/icon.svg`) pins the original white-on-black lockup so it reads on any tab bar.
+
 ## Direction
 
 Notion-calm surfaces in light mode, Linear-grade depth in dark mode. The product is a text-dense,

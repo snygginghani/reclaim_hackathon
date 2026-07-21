@@ -7,12 +7,16 @@ export interface GpuInfo {
   vendor: string;
   name: string;
   vram_gb: number | null;
+  kind: "discrete" | "integrated";
+  source: string;
 }
 
 export interface HardwareInfo {
   os: string;
   cpu: string;
-  cores: number;
+  arch: string;
+  cores_physical: number;
+  cores_logical: number;
   ram_total_gb: number;
   ram_available_gb: number;
   disk_free_gb: number;

@@ -31,6 +31,7 @@ import {
   useRecommendations,
   useSaveAiSettings,
   type Fit,
+  type HardwareInfo,
   type Recommendations,
 } from "@/hooks/use-ai";
 import { useWorkspace } from "@/hooks/use-workspaces";
@@ -164,29 +165,31 @@ function LocalSection({ workspaceId, isOwner }: { workspaceId: string; isOwner: 
   return (
     <section className="flex flex-col gap-5">
       <div>
-        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          This machine
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          <SpecChip icon={Cpu} label={`${hardware.cores} cores`} />
-          <SpecChip
-            icon={MemoryStick}
-            label={`${hardware.ram_total_gb} GB RAM (${hardware.ram_available_gb} free)`}
-          />
-          {hardware.gpus.map((g) => (
-            <SpecChip
-              key={g.name}
-              icon={Gauge}
-              label={g.vram_gb ? `${g.name} · ${g.vram_gb} GB VRAM` : g.name}
-              highlight={!!g.vram_gb}
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Detected on this machine
+          </h2>
+          <span
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium",
+              ollama.data?.running
+                ? "bg-success/15 text-success"
+                : "bg-muted-foreground/10 text-muted-foreground"
+            )}
+          >
+            <span
+              className={cn(
+                "size-1.5 rounded-full",
+                ollama.data?.running ? "animate-pulse bg-success" : "bg-muted-foreground"
+              )}
             />
-          ))}
-          {hardware.gpus.length === 0 && <SpecChip icon={Gauge} label="No dedicated GPU" />}
-          <SpecChip icon={HardDrive} label={`${hardware.disk_free_gb} GB disk free`} />
+            {ollama.data?.running ? "Ollama connected" : "Ollama offline"}
+          </span>
         </div>
+        <HardwarePanel hardware={hardware} budget={budget} />
         {!ollama.data?.running && (
           <p className="mt-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm">
-            Ollama isn’t running. Install it from{" "}
+            Your hardware is detected, but Ollama isn’t running yet. Install it from{" "}
             <a
               href="https://ollama.com/download"
               target="_blank"
@@ -195,7 +198,7 @@ function LocalSection({ workspaceId, isOwner }: { workspaceId: string; isOwner: 
             >
               ollama.com/download
             </a>{" "}
-            and it will be detected automatically.
+            — Lore reconnects automatically, then you can install a model in one click.
           </p>
         )}
       </div>
@@ -256,25 +259,119 @@ function LocalSection({ workspaceId, isOwner }: { workspaceId: string; isOwner: 
   );
 }
 
-function SpecChip({
+function Meter({
+  value,
+  max,
+  tone = "primary",
+}: {
+  value: number;
+  max: number;
+  tone?: "primary" | "ai" | "muted";
+}) {
+  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+  const bar = { primary: "bg-primary", ai: "bg-ai", muted: "bg-muted-foreground/50" }[tone];
+  return (
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+      <div className={cn("h-full rounded-full transition-all", bar)} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+function SpecRow({
   icon: Icon,
   label,
-  highlight,
+  value,
+  children,
+  accent,
 }: {
   icon: React.ElementType;
   label: string;
-  highlight?: boolean;
+  value: string;
+  children?: React.ReactNode;
+  accent?: boolean;
 }) {
   return (
-    <span
-      className={cn(
-        "flex items-center gap-1.5 rounded-lg border bg-card px-2.5 py-1.5 text-xs font-medium",
-        highlight && "border-primary/40 text-primary"
+    <div className="flex flex-col gap-1.5 px-3.5 py-3">
+      <div className="flex items-center gap-2">
+        <Icon className={cn("size-4 shrink-0", accent ? "text-primary" : "text-muted-foreground")} />
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+        </span>
+        <span className="ml-auto text-right text-xs tabular-nums text-muted-foreground">{value}</span>
+      </div>
+      <span className="truncate text-sm font-medium">{children}</span>
+    </div>
+  );
+}
+
+function HardwarePanel({
+  hardware,
+  budget,
+}: {
+  hardware: HardwareInfo;
+  budget: { gpu_gb: number | null; cpu_gb: number; gpu_name: string | null };
+}) {
+  const usedRam = hardware.ram_total_gb - hardware.ram_available_gb;
+  return (
+    <div className="grid gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-2">
+      <div className="bg-card">
+        <SpecRow
+          icon={Cpu}
+          label="Processor"
+          value={`${hardware.cores_physical}C · ${hardware.cores_logical}T`}
+        >
+          {hardware.cpu}
+        </SpecRow>
+      </div>
+      <div className="bg-card">
+        <SpecRow
+          icon={MemoryStick}
+          label="Memory"
+          value={`${hardware.ram_available_gb} / ${hardware.ram_total_gb} GB free`}
+        >
+          <span className="text-muted-foreground">System RAM</span>
+        </SpecRow>
+        <div className="px-3.5 pb-3">
+          <Meter value={usedRam} max={hardware.ram_total_gb} tone="muted" />
+        </div>
+      </div>
+
+      {hardware.gpus.length > 0 ? (
+        hardware.gpus.map((g) => (
+          <div key={g.name} className="bg-card">
+            <SpecRow
+              icon={Gauge}
+              label={g.kind === "integrated" ? "Integrated GPU" : "Graphics"}
+              value={g.vram_gb ? `${g.vram_gb} GB VRAM` : "VRAM unknown"}
+              accent={!!g.vram_gb && g.kind === "discrete"}
+            >
+              {g.name}
+            </SpecRow>
+            {g.vram_gb ? (
+              <div className="px-3.5 pb-3">
+                <Meter value={g.vram_gb - (budget.gpu_gb ?? 0)} max={g.vram_gb} tone="primary" />
+              </div>
+            ) : null}
+          </div>
+        ))
+      ) : (
+        <div className="bg-card">
+          <SpecRow icon={Gauge} label="Graphics" value="CPU only">
+            <span className="text-muted-foreground">No dedicated GPU detected</span>
+          </SpecRow>
+        </div>
       )}
-    >
-      <Icon className="size-3.5" />
-      {label}
-    </span>
+
+      <div className="bg-card">
+        <SpecRow
+          icon={HardDrive}
+          label="Storage"
+          value={`${hardware.disk_free_gb} GB free`}
+        >
+          <span className="text-muted-foreground">Available for models</span>
+        </SpecRow>
+      </div>
+    </div>
   );
 }
 
