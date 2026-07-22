@@ -14,13 +14,16 @@ import {
   History,
   Loader2,
   MessageSquare,
+  Pencil,
   Plus,
   Search,
   Send,
+  ShieldCheck,
   Sparkles,
   Trash2,
   Wand2,
   X,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LoreMark } from "@/components/lore-mark";
@@ -49,6 +52,20 @@ import { useHighlight } from "@/stores/highlight";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
+/** Compact "when" for the history list — absolute dates once it's over a week old. */
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const mins = Math.floor((Date.now() - then) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(then).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 type StreamEvent =
   | { type: "conversation"; id: string }
   | { type: "sources"; sources: Citation[] }
@@ -65,7 +82,36 @@ type ApprovalState = Approval & {
 type PanelMessage = ChatMessage & {
   tools?: string[];
   approvals?: ApprovalState[];
+  /** Set when the user stopped generation, so the partial answer is labelled. */
+  stopped?: boolean;
 };
+
+/** What Lore is doing right now, so the wait is never an unexplained spinner. */
+type Activity =
+  | { kind: "thinking" }
+  | { kind: "retrieving" }
+  | { kind: "tool"; name: string }
+  | { kind: "writing" };
+
+/** Present tense — these describe work in flight, not work already done. */
+const TOOL_LIVE_LABELS: Record<string, string> = {
+  search_workspace: "Searching your workspace",
+  read_page: "Reading a page",
+  list_pages: "Looking through your pages",
+};
+
+function activityLabel(a: Activity): string {
+  switch (a.kind) {
+    case "retrieving":
+      return "Searching your workspace";
+    case "tool":
+      return TOOL_LIVE_LABELS[a.name] ?? `Running ${a.name}`;
+    case "writing":
+      return "Writing the answer";
+    default:
+      return "Thinking";
+  }
+}
 
 const GENERATORS = [
   { kind: "summary", label: "Summary" },
@@ -77,6 +123,8 @@ const GENERATORS = [
 export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
   const open = useUiStore((s) => s.assistantOpen);
   const setOpen = useUiStore((s) => s.setAssistantOpen);
+  const agentWrites = useUiStore((s) => s.agentWrites);
+  const setAgentWrites = useUiStore((s) => s.setAgentWrites);
   const router = useRouter();
   const pathname = usePathname();
   const qc = useQueryClient();
@@ -92,9 +140,16 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
   const [streaming, setStreaming] = useState(false);
   const [streamText, setStreamText] = useState("");
   const [streamSources, setStreamSources] = useState<Citation[]>([]);
+  const [activity, setActivity] = useState<Activity>({ kind: "thinking" });
+  const [liveTools, setLiveTools] = useState<string[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [loadingChat, setLoadingChat] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Accumulates the in-flight answer so a stop can keep what already arrived.
+  const partialRef = useRef("");
+  const pinnedToBottom = useRef(true);
 
   const conversations = useConversations(workspaceId, open && showHistory);
   const deleteConversation = useDeleteConversation(workspaceId);
@@ -103,10 +158,19 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
   // so we never fight the toggle in an effect).
   const effectiveScope: "workspace" | "page" = currentPageId ? scope : "workspace";
 
-  // Autoscroll to the latest content.
+  // Autoscroll to the latest content — but only while the user is already at the
+  // bottom. Scrolling up to re-read an earlier answer used to get yanked back on
+  // every streamed token.
   useEffect(() => {
+    if (!pinnedToBottom.current) return;
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, streamText]);
+  }, [messages, streamText, activity]);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    pinnedToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
 
   const onCite = (c: Citation) => {
     if (c.block_ids[0]) requestHighlight(c.page_id, c.block_ids[0]);
@@ -119,13 +183,33 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
     setConversationId(null);
     setStreamText("");
     setStreaming(false);
+    setShowHistory(false);
+    inputRef.current?.focus();
   };
 
   const loadConversation = async (id: string) => {
-    setShowHistory(false);
-    const msgs = await api<ChatMessage[]>(`/api/ai/conversations/${id}`);
-    setMessages(msgs);
-    setConversationId(id);
+    setLoadingChat(id);
+    try {
+      const msgs = await api<ChatMessage[]>(`/api/ai/conversations/${id}`);
+      setMessages(msgs);
+      setConversationId(id);
+      setShowHistory(false);
+      pinnedToBottom.current = true;
+    } catch {
+      toast.error("Couldn’t open that chat");
+    } finally {
+      setLoadingChat(null);
+    }
+  };
+
+  const removeConversation = (id: string) => {
+    deleteConversation.mutate(id, {
+      onSuccess: () => {
+        // Deleting the chat you're reading used to leave its messages on screen.
+        if (id === conversationId) newChat();
+      },
+      onError: () => toast.error("Couldn’t delete that chat"),
+    });
   };
 
   const send = async (text: string) => {
@@ -135,6 +219,10 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
     setStreaming(true);
     setStreamText("");
     setStreamSources([]);
+    setActivity({ kind: mode === "agent" ? "thinking" : "retrieving" });
+    setLiveTools([]);
+    partialRef.current = "";
+    pinnedToBottom.current = true;
     abortRef.current = new AbortController();
     try {
       if (mode === "agent") await runAgent(text);
@@ -143,6 +231,20 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
       setStreaming(false);
       setStreamText("");
       setStreamSources([]);
+      setLiveTools([]);
+    }
+  };
+
+  /** Keep whatever already streamed when the user hits stop. */
+  const stop = () => {
+    const partial = partialRef.current.trim();
+    abortRef.current?.abort();
+    if (partial) {
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: partial, citations: streamSources, stopped: true },
+      ]);
+      partialRef.current = "";
     }
   };
 
@@ -163,7 +265,9 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
         else if (ev.type === "sources") setStreamSources(ev.sources);
         else if (ev.type === "text") {
           acc += ev.text;
+          partialRef.current = acc;
           setStreamText(acc);
+          setActivity({ kind: "writing" });
         } else if (ev.type === "error") throw new Error(ev.error);
         else if (ev.type === "done") used = ev.citations ?? [];
       }
@@ -181,22 +285,38 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
     try {
       for await (const ev of sseStream<StreamEvent>(
         "/api/ai/agent",
-        { workspace_id: workspaceId, message: text },
+        { workspace_id: workspaceId, message: text, conversation_id: conversationId },
         abortRef.current!.signal
       )) {
-        if (ev.type === "text") {
+        if (ev.type === "conversation") setConversationId(ev.id);
+        else if (ev.type === "text") {
           acc += ev.text;
+          partialRef.current = acc;
           setStreamText(acc);
+          setActivity({ kind: "writing" });
         } else if (ev.type === "tool") {
           tools.push(ev.name);
+          // Surface the tool as it runs, not only after the turn finishes.
+          setLiveTools((t) => [...t, ev.name]);
+          setActivity({ kind: "tool", name: ev.name });
         } else if (ev.type === "approval") {
           approvals.push({ tool: ev.tool, args: ev.args, preview: ev.preview, status: "pending" });
         } else if (ev.type === "error") throw new Error(ev.error);
       }
+      const msgId = crypto.randomUUID();
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: acc, citations: [], tools, approvals },
+        { id: msgId, role: "assistant", content: acc, citations: [], tools, approvals },
       ]);
+      // Agent turns are persisted now, so the history list has to refresh too.
+      qc.invalidateQueries({ queryKey: ["conversations", workspaceId] });
+      if (agentWrites === "auto" && approvals.length > 0) {
+        // Sequential, not parallel: several proposals can touch the same page and
+        // concurrent writes would clobber each other.
+        for (let i = 0; i < approvals.length; i++) {
+          await decideApproval(msgId, i, true, approvals[i]);
+        }
+      }
     } catch (e) {
       appendError(e);
     }
@@ -208,11 +328,20 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
     setMessages((m) => [...m, { role: "assistant", content: `⚠️ ${msg}`, citations: [] }]);
   };
 
-  const decideApproval = async (msgIndex: number, apprIndex: number, approve: boolean) => {
+  /**
+   * `known` lets auto-mode pass the proposal directly: the message it belongs to
+   * may not be in state yet when we start applying.
+   */
+  const decideApproval = async (
+    msgId: string,
+    apprIndex: number,
+    approve: boolean,
+    known?: ApprovalState
+  ) => {
     const setStatus = (status: ApprovalState["status"]) =>
       setMessages((m) =>
-        m.map((msg, i) => {
-          if (i !== msgIndex || !msg.approvals) return msg;
+        m.map((msg) => {
+          if (msg.id !== msgId || !msg.approvals) return msg;
           const next = msg.approvals.map((a, j) => (j === apprIndex ? { ...a, status } : a));
           return { ...msg, approvals: next };
         })
@@ -221,7 +350,7 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
       setStatus("rejected");
       return;
     }
-    const approval = messages[msgIndex]?.approvals?.[apprIndex];
+    const approval = known ?? messages.find((m) => m.id === msgId)?.approvals?.[apprIndex];
     if (!approval) return;
     setStatus("applying");
     try {
@@ -327,7 +456,24 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
                 </div>
               )}
               {mode === "agent" && (
-                <span className="ml-auto text-xs text-muted-foreground">Proposes edits you approve</span>
+                <div className="ml-auto flex rounded-lg bg-secondary p-0.5">
+                  <WriteModeBtn
+                    active={agentWrites === "ask"}
+                    onClick={() => setAgentWrites("ask")}
+                    icon={ShieldCheck}
+                    title="Every change waits for your approval"
+                  >
+                    Ask
+                  </WriteModeBtn>
+                  <WriteModeBtn
+                    active={agentWrites === "auto"}
+                    onClick={() => setAgentWrites("auto")}
+                    icon={Zap}
+                    title="Changes are applied as soon as Lore proposes them"
+                  >
+                    Auto
+                  </WriteModeBtn>
+                </div>
               )}
             </div>
 
@@ -337,24 +483,45 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
                   <span className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Recent chats
                   </span>
+                  {conversations.isPending && (
+                    <p className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+                      <Loader2 className="size-3.5 animate-spin" /> Loading chats…
+                    </p>
+                  )}
+                  {conversations.isError && (
+                    <p className="px-2 py-6 text-center text-sm text-destructive">
+                      Couldn’t load your chats.
+                    </p>
+                  )}
                   {(conversations.data ?? []).map((c) => (
                     <div
                       key={c.id}
-                      className="group flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-secondary"
+                      className={cn(
+                        "group flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-secondary",
+                        c.id === conversationId && "bg-secondary"
+                      )}
                     >
                       <button
                         onClick={() => loadConversation(c.id)}
-                        className="min-w-0 flex-1 truncate text-left"
+                        disabled={loadingChat !== null}
+                        className="flex min-w-0 flex-1 flex-col items-start text-left disabled:opacity-60"
                       >
-                        {c.title}
+                        <span className="w-full truncate">{c.title}</span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {relativeTime(c.updated_at)}
+                        </span>
                       </button>
-                      <button
-                        onClick={() => deleteConversation.mutate(c.id)}
-                        aria-label="Delete chat"
-                        className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
+                      {loadingChat === c.id ? (
+                        <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+                      ) : (
+                        <button
+                          onClick={() => removeConversation(c.id)}
+                          aria-label={`Delete chat ${c.title}`}
+                          className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 focus-visible:opacity-100"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      )}
                     </div>
                   ))}
                   {conversations.isSuccess && conversations.data.length === 0 && (
@@ -365,27 +532,26 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
                 </div>
               </ScrollArea>
             ) : (
-              <div ref={scrollRef} className="flex-1 overflow-y-auto p-3">
+              <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-3">
                 {messages.length === 0 && !streaming ? (
                   <EmptyState onAsk={send} onGenerate={generate} />
                 ) : (
                   <div className="flex flex-col gap-4">
                     {messages.map((m, i) => (
                       <MessageBubble
-                        key={i}
+                        key={m.id ?? i}
                         message={m}
                         onCite={onCite}
-                        onDecide={(ai, approve) => decideApproval(i, ai, approve)}
+                        onDecide={(ai, approve) => decideApproval(m.id ?? "", ai, approve)}
                       />
                     ))}
                     {streaming && (
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-2">
+                        {liveTools.length > 0 && <ToolChips tools={liveTools} />}
                         {streamText ? (
                           <Answer content={streamText} citations={streamSources} onCite={onCite} />
                         ) : (
-                          <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Loader2 className="size-3.5 animate-spin" /> Searching your workspace…
-                          </span>
+                          <ThinkingIndicator activity={activity} />
                         )}
                       </div>
                     )}
@@ -395,11 +561,24 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
             )}
 
             {/* input */}
-            <div className="border-t p-3">
-              <div className="flex items-end gap-2 rounded-xl border bg-card p-1.5 focus-within:border-ai/50">
+            <div className="border-t bg-sidebar p-3">
+              {mode === "agent" && agentWrites === "auto" && (
+                <p className="mb-2 flex items-center gap-1.5 rounded-lg bg-warning/10 px-2.5 py-1.5 text-[11px] text-warning">
+                  <Zap className="size-3 shrink-0" />
+                  Auto mode — Lore edits your workspace without asking. Undo from Trash.
+                </p>
+              )}
+              <div className="flex items-end gap-1.5 rounded-2xl border bg-card p-2 shadow-sm transition-colors focus-within:border-ai/60 focus-within:ring-2 focus-within:ring-ai/15">
                 <textarea
+                  ref={inputRef}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    // Grow with the content instead of scrolling inside one line.
+                    const el = e.currentTarget;
+                    el.style.height = "auto";
+                    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -408,27 +587,37 @@ export function AskLorePanel({ workspaceId }: { workspaceId: string }) {
                   }}
                   rows={1}
                   placeholder={mode === "agent" ? "Tell Lore what to do…" : "Ask about your workspace…"}
-                  className="max-h-32 min-h-8 flex-1 resize-none bg-transparent px-2 py-1 text-sm outline-none"
+                  className="max-h-32 min-h-8 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/60"
                 />
                 {streaming ? (
                   <button
-                    onClick={() => abortRef.current?.abort()}
-                    aria-label="Stop"
-                    className="flex size-8 items-center justify-center rounded-lg bg-secondary text-foreground"
+                    onClick={stop}
+                    aria-label="Stop generating"
+                    title="Stop — keeps what's written so far"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-xl border bg-secondary text-foreground transition-colors hover:bg-border"
                   >
-                    <span className="size-2.5 rounded-sm bg-foreground" />
+                    <span className="size-2.5 rounded-[3px] bg-foreground" />
                   </button>
                 ) : (
                   <button
                     onClick={() => void send(input)}
                     disabled={!input.trim()}
                     aria-label="Send"
-                    className="flex size-8 items-center justify-center rounded-lg bg-ai text-white transition-opacity disabled:opacity-40"
+                    className={cn(
+                      "flex size-8 shrink-0 items-center justify-center rounded-xl text-white transition-all",
+                      input.trim()
+                        ? "bg-ai hover:brightness-110 active:scale-95"
+                        : "bg-muted text-muted-foreground"
+                    )}
                   >
                     <Send className="size-4" />
                   </button>
                 )}
               </div>
+              <p className="mt-1.5 px-1 text-[10px] text-muted-foreground/60">
+                <kbd className="font-mono">Enter</kbd> to send ·{" "}
+                <kbd className="font-mono">Shift+Enter</kbd> for a new line
+              </p>
             </div>
           </div>
         </motion.aside>
@@ -459,10 +648,49 @@ function MessageBubble({
       {message.content.trim() && (
         <Answer content={message.content} citations={message.citations} onCite={onCite} />
       )}
+      {message.stopped && (
+        <span className="text-[11px] text-muted-foreground">Stopped — partial answer</span>
+      )}
       <SourceList citations={message.citations} onCite={onCite} />
       {message.approvals?.map((a, i) => (
         <ApprovalCard key={i} approval={a} onDecide={(approve) => onDecide(i, approve)} />
       ))}
+    </div>
+  );
+}
+
+/**
+ * Live status while Lore works. Shows the actual step (which tool is running,
+ * or that it has started writing) plus elapsed seconds, because a model call can
+ * take 20s+ and a bare spinner gives no way to tell working from hung.
+ */
+function ThinkingIndicator({ activity }: { activity: Activity }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const started = Date.now();
+    const t = setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex items-center gap-2 text-sm text-muted-foreground"
+    >
+      <span className="flex gap-1" aria-hidden>
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="lore-dot size-1.5 rounded-full bg-ai"
+            style={{ animationDelay: `${i * 0.16}s` }}
+          />
+        ))}
+      </span>
+      <span>{activityLabel(activity)}…</span>
+      {elapsed >= 3 && (
+        <span className="tabular-nums text-xs text-muted-foreground/60">{elapsed}s</span>
+      )}
     </div>
   );
 }
@@ -492,8 +720,14 @@ function ToolChips({ tools }: { tools: string[] }) {
 const APPROVAL_ICON: Record<string, React.ElementType> = {
   create_page: FilePlus2,
   append_to_page: FileText,
+  update_page: FileText,
+  rename_page: Pencil,
+  trash_pages: Trash2,
   create_database: Database,
 };
+
+/** Tools that remove or overwrite existing content get destructive styling. */
+const DESTRUCTIVE_TOOLS = new Set(["trash_pages", "update_page"]);
 
 function ApprovalCard({
   approval,
@@ -503,17 +737,19 @@ function ApprovalCard({
   onDecide: (approve: boolean) => void;
 }) {
   const Icon = APPROVAL_ICON[approval.tool] ?? Wand2;
+  const destructive = DESTRUCTIVE_TOOLS.has(approval.tool);
   return (
     <div
       className={cn(
         "rounded-xl border p-3 transition-colors",
         approval.status === "applied" && "border-success/40 bg-success/5",
         approval.status === "rejected" && "border-border bg-muted/30 opacity-60",
-        approval.status === "pending" && "border-ai/30 bg-ai-soft"
+        approval.status === "pending" &&
+          (destructive ? "border-destructive/40 bg-destructive/5" : "border-ai/30 bg-ai-soft")
       )}
     >
       <div className="flex items-center gap-2">
-        <Icon className="size-4 shrink-0 text-ai" />
+        <Icon className={cn("size-4 shrink-0", destructive ? "text-destructive" : "text-ai")} />
         <span className="text-sm font-medium">
           {approval.preview.action}
           {approval.preview.title ? `: ${approval.preview.title}` : ""}
@@ -528,10 +764,13 @@ function ApprovalCard({
         <div className="mt-2.5 flex gap-2">
           <button
             onClick={() => onDecide(true)}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-ai px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            className={cn(
+              "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90",
+              destructive ? "bg-destructive" : "bg-ai"
+            )}
           >
             <Check className="size-4" />
-            Approve
+            {destructive ? "Confirm" : "Approve"}
           </button>
           <button
             onClick={() => onDecide(false)}
@@ -555,6 +794,41 @@ function ApprovalCard({
         <p className="mt-2 text-xs text-muted-foreground">Rejected</p>
       )}
     </div>
+  );
+}
+
+/** Ask vs Auto. Auto is amber, not neutral — it changes the workspace unprompted. */
+function WriteModeBtn({
+  active,
+  onClick,
+  icon: Icon,
+  title,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ElementType;
+  title: string;
+  children: React.ReactNode;
+}) {
+  const isAuto = children === "Auto";
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      aria-pressed={active}
+      className={cn(
+        "flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
+        active
+          ? isAuto
+            ? "bg-warning/15 text-warning shadow-sm"
+            : "bg-background text-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground"
+      )}
+    >
+      <Icon className="size-3" />
+      {children}
+    </button>
   );
 }
 

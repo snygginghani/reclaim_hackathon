@@ -1,11 +1,11 @@
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 from ..ai.ingest import backfill_workspace
 from ..ai.memory import extract_memories
@@ -114,6 +114,13 @@ async def chat(
                         content=answer,
                         citations=citations,
                     )
+                )
+                # Inserting child rows doesn't trigger the model's `onupdate`, so
+                # history stayed ordered by creation instead of last activity.
+                await s.execute(
+                    update(Conversation)
+                    .where(Conversation.id == conv_id)
+                    .values(updated_at=datetime.now(timezone.utc))
                 )
                 await s.commit()
         yield _sse({"type": "done", "citations": citations})

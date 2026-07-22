@@ -1,15 +1,20 @@
-import { API_URL } from "./api";
+import { authedFetch } from "./api";
 
-/** POST to an SSE endpoint and yield each `data:` JSON payload. */
+/**
+ * POST to an SSE endpoint and yield each `data:` JSON payload.
+ *
+ * Goes through `authedFetch` so an expired access token is refreshed and the
+ * request replayed, exactly as for JSON calls. Streaming used to bypass that and
+ * every AI feature is SSE, so the assistant failed with "Not authenticated" once
+ * the 15-minute token lapsed while the rest of the app silently recovered.
+ */
 export async function* sseStream<T>(
   path: string,
   body: unknown,
   signal?: AbortSignal
 ): AsyncGenerator<T> {
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await authedFetch(path, {
     method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     signal,
   });
