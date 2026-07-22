@@ -171,12 +171,12 @@ def test_secret_roundtrip_and_tamper_rejection():
 
 async def test_ai_settings_roundtrip_without_key(user_client: AsyncClient):
     ws = await make_workspace(user_client)
-    r = await user_client.get("/api/ai/settings", params={"workspace_id": ws})
+    r = await user_client.get("/api/ai/settings")
     assert r.json() == {
         "provider": None, "default_model": None, "fast_model": None, "has_openrouter_key": False,
     }
     r = await user_client.put(
-        f"/api/ai/settings?workspace_id={ws}",
+        "/api/ai/settings",
         json={"provider": "ollama", "default_model": "qwen3:8b", "fast_model": "gemma3:1b"},
     )
     assert r.status_code == 200
@@ -185,23 +185,43 @@ async def test_ai_settings_roundtrip_without_key(user_client: AsyncClient):
     assert out["has_openrouter_key"] is False
 
 
-async def test_ai_settings_owner_only(client: AsyncClient):
+async def test_ai_settings_are_per_user_not_per_workspace(client: AsyncClient):
+    """Each person configures AI once for themselves; sharing a workspace never
+    exposes or overwrites someone else's provider and key."""
     await client.post(
         "/api/auth/register",
         json={"email": "ai-owner@example.com", "password": "long-enough-1", "name": "O"},
     )
     ws = await make_workspace(client)
     invite = (await client.post(f"/api/workspaces/{ws}/invites", json={"role": "editor"})).json()
+    r = await client.put("/api/ai/settings", json={"provider": "ollama", "default_model": "big"})
+    assert r.status_code == 200
+
     await client.post("/api/auth/logout")
     await client.post(
         "/api/auth/register",
         json={"email": "ai-editor@example.com", "password": "long-enough-1", "name": "E"},
     )
     await client.post(f"/api/workspaces/invites/{invite['id']}/accept")
-    r = await client.put(f"/api/ai/settings?workspace_id={ws}", json={"provider": "ollama"})
-    assert r.status_code == 403
-    # Members can still read the (key-free) settings.
-    assert (await client.get("/api/ai/settings", params={"workspace_id": ws})).status_code == 200
+
+    # The invitee shares the workspace but starts with their own blank config.
+    mine = (await client.get("/api/ai/settings")).json()
+    assert mine["provider"] is None and mine["default_model"] is None
+
+    # Configuring it affects only them — no owner role required.
+    assert (
+        await client.put(
+            "/api/ai/settings", json={"provider": "ollama", "default_model": "small"}
+        )
+    ).status_code == 200
+    assert (await client.get("/api/ai/settings")).json()["default_model"] == "small"
+
+    await client.post("/api/auth/logout")
+    await client.post(
+        "/api/auth/login",
+        json={"email": "ai-owner@example.com", "password": "long-enough-1"},
+    )
+    assert (await client.get("/api/ai/settings")).json()["default_model"] == "big"
 
 
 async def test_chat_test_conflict_when_unconfigured(user_client: AsyncClient):

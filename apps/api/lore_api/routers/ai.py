@@ -89,21 +89,18 @@ def _settings_out(s: AiSettings | None) -> AiSettingsOut:
 
 
 @router.get("/settings", response_model=AiSettingsOut)
-async def get_ai_settings(
-    workspace_id: uuid.UUID, user: CurrentUser, db: DbSession
-) -> AiSettingsOut:
-    await require_membership(db, workspace_id, user.id)
-    return _settings_out(await db.get(AiSettings, workspace_id))
+async def get_ai_settings(user: CurrentUser, db: DbSession) -> AiSettingsOut:
+    """AI config belongs to the user, so no workspace scoping here."""
+    return _settings_out(await db.get(AiSettings, user.id))
 
 
 @router.put("/settings", response_model=AiSettingsOut)
 async def put_ai_settings(
-    workspace_id: uuid.UUID, body: AiSettingsIn, user: CurrentUser, db: DbSession
+    body: AiSettingsIn, user: CurrentUser, db: DbSession
 ) -> AiSettingsOut:
-    await require_membership(db, workspace_id, user.id, min_role="owner")
-    settings = await db.get(AiSettings, workspace_id)
+    settings = await db.get(AiSettings, user.id)
     if settings is None:
-        settings = AiSettings(workspace_id=workspace_id)
+        settings = AiSettings(user_id=user.id)
         db.add(settings)
 
     if body.openrouter_key is not None:
@@ -243,11 +240,12 @@ async def ollama_pull(body: PullIn, user: CurrentUser) -> StreamingResponse:
 # --- provider resolution + test chat ---
 
 
-async def resolve_provider(db, workspace_id: uuid.UUID) -> tuple[LLMProvider, AiSettings]:
-    settings = await db.get(AiSettings, workspace_id)
+async def resolve_provider(db, user_id: uuid.UUID) -> tuple[LLMProvider, AiSettings]:
+    """Resolve the caller's own AI config — it follows them across workspaces."""
+    settings = await db.get(AiSettings, user_id)
     if settings is None or settings.provider is None or not settings.default_model:
         raise HTTPException(
-            status.HTTP_409_CONFLICT, "AI isn’t set up for this workspace yet"
+            status.HTTP_409_CONFLICT, "AI isn’t set up yet — add a provider in AI settings"
         )
     if settings.provider == "ollama":
         return OllamaProvider(), settings
@@ -265,7 +263,7 @@ class TestChatIn(BaseModel):
 @router.post("/chat/test")
 async def chat_test(body: TestChatIn, user: CurrentUser, db: DbSession) -> StreamingResponse:
     await require_membership(db, body.workspace_id, user.id)
-    provider, settings = await resolve_provider(db, body.workspace_id)
+    provider, settings = await resolve_provider(db, user.id)
     messages: list[ChatMessage] = [
         {"role": "system", "content": "You are Lore, a concise helpful assistant. Reply briefly."},
         {"role": "user", "content": body.prompt},

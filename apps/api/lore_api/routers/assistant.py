@@ -41,7 +41,7 @@ async def chat(
     body: ChatIn, user: CurrentUser, db: DbSession, background: BackgroundTasks
 ) -> StreamingResponse:
     await require_membership(db, body.workspace_id, user.id)
-    provider, settings = await resolve_provider(db, body.workspace_id)
+    provider, settings = await resolve_provider(db, user.id)
 
     scoped_pages = body.scope.page_ids if body.scope.type != "workspace" else None
     retrieved = await hybrid_search(
@@ -302,7 +302,7 @@ class GenerateIn(BaseModel):
 @router.post("/generate")
 async def generate(body: GenerateIn, user: CurrentUser, db: DbSession) -> StreamingResponse:
     await require_membership(db, body.workspace_id, user.id)
-    provider, settings = await resolve_provider(db, body.workspace_id)
+    provider, settings = await resolve_provider(db, user.id)
     scoped_pages = body.scope.page_ids if body.scope.type != "workspace" else None
     # Broad retrieval — generators want coverage, not just the top few.
     retrieved = await hybrid_search(

@@ -105,7 +105,7 @@ def _sse(obj: dict) -> str:
 @router.post("/agent")
 async def agent(body: AgentIn, user: CurrentUser, db: DbSession) -> StreamingResponse:
     await require_membership(db, body.workspace_id, user.id, min_role="editor")
-    provider, settings = await resolve_provider(db, body.workspace_id)
+    provider, settings = await resolve_provider(db, user.id)
 
     # Agent turns were never persisted, so every agent chat vanished on reload and
     # the model had no memory of earlier turns in the same conversation.

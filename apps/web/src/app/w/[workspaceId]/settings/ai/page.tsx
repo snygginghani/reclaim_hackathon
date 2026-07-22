@@ -45,8 +45,8 @@ export default function AiSettingsPage({
   const search = useSearchParams();
   const isWizard = search.get("setup") === "1";
   const workspace = useWorkspace(workspaceId);
-  const settings = useAiSettings(workspaceId);
-  const save = useSaveAiSettings(workspaceId);
+  const settings = useAiSettings();
+  const save = useSaveAiSettings();
   const isOwner = workspace.data?.role === "owner";
 
   const provider = settings.data?.provider ?? null;
@@ -94,10 +94,10 @@ export default function AiSettingsPage({
 
           <div className="mt-8 flex flex-col gap-8">
             {provider === "ollama" && (
-              <LocalSection workspaceId={workspaceId} isOwner={isOwner} />
+              <LocalSection isOwner={isOwner} />
             )}
             {provider === "openrouter" && (
-              <CloudSection workspaceId={workspaceId} isOwner={isOwner} />
+              <CloudSection isOwner={isOwner} />
             )}
             {provider && settings.data?.default_model && (
               <TestChat workspaceId={workspaceId} />
@@ -149,11 +149,11 @@ function ProviderCard({
 
 /* ---------------- local (Ollama) ---------------- */
 
-function LocalSection({ workspaceId, isOwner }: { workspaceId: string; isOwner: boolean }) {
+function LocalSection({ isOwner }: { isOwner: boolean }) {
   const recs = useRecommendations();
   const ollama = useOllamaStatus();
-  const settings = useAiSettings(workspaceId);
-  const save = useSaveAiSettings(workspaceId);
+  const settings = useAiSettings();
+  const save = useSaveAiSettings();
 
   if (recs.isPending) return <Skeleton className="h-64 w-full" />;
   if (recs.isError) {
@@ -247,7 +247,6 @@ function LocalSection({ workspaceId, isOwner }: { workspaceId: string; isOwner: 
       </div>
 
       <ModelPicker
-        workspaceId={workspaceId}
         ladder={ladder}
         installedModels={[...installed]}
         gpuBudget={budget.gpu_gb}
@@ -475,7 +474,6 @@ function InstallButton({
 }
 
 function ModelPicker({
-  workspaceId,
   ladder,
   installedModels,
   gpuBudget,
@@ -483,7 +481,6 @@ function ModelPicker({
   isOwner,
   ollamaRunning,
 }: {
-  workspaceId: string;
   ladder: Recommendations["ladder"];
   installedModels: string[];
   gpuBudget: number | null;
@@ -491,8 +488,8 @@ function ModelPicker({
   isOwner: boolean;
   ollamaRunning: boolean;
 }) {
-  const settings = useAiSettings(workspaceId);
-  const save = useSaveAiSettings(workspaceId);
+  const settings = useAiSettings();
+  const save = useSaveAiSettings();
   const budget = gpuBudget ?? cpuBudget;
 
   return (
@@ -594,9 +591,9 @@ function InstallMini({ tag, disabled }: { tag: string; disabled: boolean }) {
 
 /* ---------------- cloud (OpenRouter) ---------------- */
 
-function CloudSection({ workspaceId, isOwner }: { workspaceId: string; isOwner: boolean }) {
-  const settings = useAiSettings(workspaceId);
-  const save = useSaveAiSettings(workspaceId);
+function CloudSection({ isOwner }: { isOwner: boolean }) {
+  const settings = useAiSettings();
+  const save = useSaveAiSettings();
   const catalog = useOpenRouterCatalog(true);
   const [key, setKey] = useState("");
   const [filter, setFilter] = useState("");

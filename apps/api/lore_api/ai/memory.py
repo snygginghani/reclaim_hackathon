@@ -58,7 +58,7 @@ async def extract_memories(
     workspace_id: uuid.UUID, user_id: uuid.UUID, user_msg: str, assistant_msg: str
 ) -> None:
     async with SessionLocal() as db:
-        settings = await db.get(AiSettings, workspace_id)
+        settings = await db.get(AiSettings, user_id)
         if settings is None or settings.provider is None:
             return
         model = settings.fast_model or settings.default_model
