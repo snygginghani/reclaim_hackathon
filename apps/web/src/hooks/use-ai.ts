@@ -68,14 +68,18 @@ export interface Catalog {
   models: CatalogModel[];
 }
 
-export function useAiSettings(workspaceId: string) {
+/**
+ * AI config belongs to the signed-in user and follows them into every
+ * workspace, so it is keyed on the account rather than the workspace id.
+ */
+export function useAiSettings() {
   return useQuery({
-    queryKey: ["ai-settings", workspaceId],
-    queryFn: () => api<AiSettings>(`/api/ai/settings?workspace_id=${workspaceId}`),
+    queryKey: ["ai-settings"],
+    queryFn: () => api<AiSettings>("/api/ai/settings"),
   });
 }
 
-export function useSaveAiSettings(workspaceId: string) {
+export function useSaveAiSettings() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: {
@@ -84,11 +88,11 @@ export function useSaveAiSettings(workspaceId: string) {
       fast_model?: string;
       openrouter_key?: string;
     }) =>
-      api<AiSettings>(`/api/ai/settings?workspace_id=${workspaceId}`, {
+      api<AiSettings>("/api/ai/settings", {
         method: "PUT",
         body: JSON.stringify(body),
       }),
-    onSuccess: (data) => qc.setQueryData(["ai-settings", workspaceId], data),
+    onSuccess: (data) => qc.setQueryData(["ai-settings"], data),
   });
 }
 

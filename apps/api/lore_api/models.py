@@ -269,14 +269,15 @@ class Memory(Base):
 
 
 class AiSettings(Base):
-    """Per-workspace AI configuration. The OpenRouter key is Fernet-encrypted
-    at rest and never returned to clients after being saved."""
+    """Per-user AI configuration, shared across every workspace that user opens.
+    The OpenRouter key is Fernet-encrypted at rest and never returned to clients
+    after being saved."""
 
     __tablename__ = "ai_settings"
     __mapper_args__ = {"eager_defaults": True}
 
-    workspace_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
     provider: Mapped[str | None] = mapped_column(String(16), default=None)  # "ollama"|"openrouter"
     openrouter_key_encrypted: Mapped[str | None] = mapped_column(Text, default=None)

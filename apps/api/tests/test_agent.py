@@ -120,7 +120,7 @@ async def test_rewrite_streams(user_client: AsyncClient, monkeypatch):
 async def test_autocomplete_uses_fast_model(user_client: AsyncClient, monkeypatch):
     ws = await make_workspace(user_client)
     await user_client.put(
-        f"/api/ai/settings?workspace_id={ws}",
+        "/api/ai/settings",
         json={"provider": "ollama", "default_model": "big", "fast_model": "small"},
     )
     fake = ScriptedProvider([[{"type": "text", "text": " world of embeddings"}]])

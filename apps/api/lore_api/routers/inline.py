@@ -34,7 +34,7 @@ class RewriteIn(BaseModel):
 @router.post("/rewrite")
 async def rewrite(body: RewriteIn, user: CurrentUser, db: DbSession) -> StreamingResponse:
     await require_membership(db, body.workspace_id, user.id)
-    provider, settings = await resolve_provider(db, body.workspace_id)
+    provider, settings = await resolve_provider(db, user.id)
     template = ACTIONS.get(body.action)
     if template is None:
         template = ACTIONS["improve"]
@@ -73,9 +73,9 @@ class AutocompleteIn(BaseModel):
 
 @router.post("/autocomplete")
 async def autocomplete(body: AutocompleteIn, user: CurrentUser, db: DbSession) -> dict:
-    """Ghost-text: predict the next few words. Uses the workspace's fast model."""
+    """Ghost-text: predict the next few words. Uses the user's fast model."""
     await require_membership(db, body.workspace_id, user.id)
-    settings = await db.get(AiSettings, body.workspace_id)
+    settings = await db.get(AiSettings, user.id)
     if settings is None or settings.provider is None:
         return {"completion": ""}
     model = settings.fast_model or settings.default_model
