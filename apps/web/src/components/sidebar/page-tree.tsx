@@ -407,8 +407,11 @@ function Row({
 
       <div
         className={cn(
-          "flex items-center gap-0.5 opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100",
-          menuOpen && "opacity-100"
+          // Hover alone is a fragile way to reach these: they're unreachable on
+          // touch, and invisible whenever the pointer is elsewhere (e.g. over the
+          // assistant panel). Keep them on for the open page and coarse pointers.
+          "flex items-center gap-0.5 opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100",
+          (menuOpen || active) && "opacity-100"
         )}
       >
         {onNewChild && (

@@ -14,6 +14,14 @@ interface UiState {
   setPaletteOpen: (v: boolean) => void;
   assistantOpen: boolean;
   setAssistantOpen: (v: boolean) => void;
+  /**
+   * How agent write proposals are handled. "ask" shows an approval card for
+   * every change; "auto" applies them as they arrive. Writes always execute
+   * client-side, so this stays a client preference — the server keeps proposing
+   * either way and never mutates the workspace itself.
+   */
+  agentWrites: "ask" | "auto";
+  setAgentWrites: (v: "ask" | "auto") => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -30,6 +38,8 @@ export const useUiStore = create<UiState>()(
       setPaletteOpen: (v) => set({ paletteOpen: v }),
       assistantOpen: false,
       setAssistantOpen: (v) => set({ assistantOpen: v }),
+      agentWrites: "ask", // safe default: nothing changes without a click
+      setAgentWrites: (v) => set({ agentWrites: v }),
     }),
     {
       name: "lore:ui",
@@ -37,6 +47,7 @@ export const useUiStore = create<UiState>()(
         expanded: s.expanded,
         sidebarCollapsed: s.sidebarCollapsed,
         assistantOpen: s.assistantOpen,
+        agentWrites: s.agentWrites,
       }),
     }
   )

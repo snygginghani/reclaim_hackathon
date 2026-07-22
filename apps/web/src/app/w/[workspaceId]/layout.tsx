@@ -53,10 +53,13 @@ export default function WorkspaceLayout({
   if (me.isPending) return <LoadingScreen />;
   if (me.isError) return null;
 
+  // The shell is pinned to the viewport (h-dvh + overflow-hidden) so only <main>
+  // scrolls. Under min-h-dvh the document grew with the page content and the
+  // whole window scrolled, dragging both fixed-height sidebars out of view.
   return (
-    <div className="flex min-h-dvh">
+    <div className="flex h-dvh overflow-hidden">
       <Sidebar workspaceId={workspaceId} />
-      <main className="flex min-w-0 flex-1 flex-col">{children}</main>
+      <main className="flex min-w-0 flex-1 flex-col overflow-y-auto">{children}</main>
       <AskLorePanel workspaceId={workspaceId} />
       <AssistantToggle />
       <CommandPalette workspaceId={workspaceId} />

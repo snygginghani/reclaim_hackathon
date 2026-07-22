@@ -18,7 +18,11 @@ function ScrollArea({
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1"
+        // Radix gives the viewport's inner wrapper `display: table`, which sizes
+        // to its widest child instead of the container — one long sidebar title
+        // stretched every row past the rail and pushed the action buttons out of
+        // the clipped area. Force it block-level so children truncate instead.
+        className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 [&>div]:!block [&>div]:!min-w-0"
       >
         {children}
       </ScrollAreaPrimitive.Viewport>

@@ -93,6 +93,72 @@ TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
+            "name": "update_page",
+            "description": (
+                "PROPOSE rewriting an existing page: replaces its whole body, and optionally "
+                "renames it. Requires user approval. Use this — never create_page — when the "
+                "user asks to edit, fix, rewrite, restructure or update a page that already "
+                "exists. Read the page first so your replacement keeps the parts still wanted."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "page_id": {"type": "string"},
+                    "title": {
+                        "type": "string",
+                        "description": "Optional new title. Omit to keep the current one.",
+                    },
+                    "content_markdown": {"type": "string", "description": MARKDOWN_HINT},
+                },
+                "required": ["page_id", "content_markdown"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "rename_page",
+            "description": (
+                "PROPOSE renaming a page, leaving its content untouched. Requires user "
+                "approval. Use this for title-only changes — never rewrite the whole body "
+                "with update_page just to change a name."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "page_id": {"type": "string"},
+                    "title": {"type": "string", "description": "The new title."},
+                },
+                "required": ["page_id", "title"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "trash_pages",
+            "description": (
+                "PROPOSE moving one or more pages to the trash. Requires user approval. "
+                "This is reversible — trashed pages can be restored — and trashing a page "
+                "also trashes its sub-pages. Pass every page the user wants gone in one call; "
+                "list_pages first to get the ids."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "page_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Ids of the pages to trash.",
+                    },
+                },
+                "required": ["page_ids"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "create_database",
             "description": "PROPOSE creating a database with named columns. Requires user approval.",
             "parameters": {
@@ -108,7 +174,14 @@ TOOL_SCHEMAS = [
 ]
 
 READ_TOOLS = {"search_workspace", "read_page", "list_pages"}
-WRITE_TOOLS = {"create_page", "append_to_page", "create_database"}
+WRITE_TOOLS = {
+    "create_page",
+    "append_to_page",
+    "update_page",
+    "rename_page",
+    "trash_pages",
+    "create_database",
+}
 
 
 async def run_read_tool(
@@ -147,6 +220,42 @@ async def run_read_tool(
     return f"Unknown tool {name}."
 
 
+async def build_preview(
+    db: AsyncSession, workspace_id: uuid.UUID, name: str, args: dict
+) -> dict:
+    """Approval card for a proposed write. Deletions resolve real page titles —
+    approving a destructive action against a list of UUIDs is not consent."""
+    if name != "trash_pages":
+        return write_preview(name, args)
+
+    ids: list[uuid.UUID] = []
+    for raw in args.get("page_ids") or []:
+        try:
+            ids.append(uuid.UUID(str(raw)))
+        except (ValueError, TypeError):
+            continue
+    titles: list[str] = []
+    if ids:
+        rows = (
+            await db.execute(
+                select(Page.title).where(
+                    Page.id.in_(ids),
+                    Page.workspace_id == workspace_id,
+                    Page.deleted_at.is_(None),
+                )
+            )
+        ).all()
+        titles = [t or "Untitled" for (t,) in rows]
+    if not titles:
+        return {"action": "Move to trash", "title": None, "summary": "No matching pages found."}
+    shown = ", ".join(titles[:8]) + (f" and {len(titles) - 8} more" if len(titles) > 8 else "")
+    return {
+        "action": f"Move {len(titles)} page{'s' if len(titles) != 1 else ''} to trash",
+        "title": None,
+        "summary": f"{shown}\n\nSub-pages go too. You can restore them from Trash.",
+    }
+
+
 def write_preview(name: str, args: dict) -> dict:
     """A human-readable approval card for a proposed write."""
     if name == "create_page":
@@ -160,6 +269,22 @@ def write_preview(name: str, args: dict) -> dict:
         return {
             "action": "Append to page",
             "title": None,
+            "page_id": args.get("page_id"),
+            "summary": _clip(str(args.get("content_markdown", "")), 400),
+        }
+    if name == "rename_page":
+        return {
+            "action": f"Rename page to “{args.get('title', 'Untitled')}”",
+            "title": args.get("title"),
+            "page_id": args.get("page_id"),
+            "summary": "The page content is left as it is.",
+        }
+    if name == "update_page":
+        # Say "Replace" out loud — approving this discards the current body.
+        renamed = args.get("title")
+        return {
+            "action": "Replace page content" + (f" and rename to “{renamed}”" if renamed else ""),
+            "title": renamed,
             "page_id": args.get("page_id"),
             "summary": _clip(str(args.get("content_markdown", "")), 400),
         }

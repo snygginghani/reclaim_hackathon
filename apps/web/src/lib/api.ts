@@ -39,14 +39,24 @@ async function tryRefresh(): Promise<boolean> {
   return refreshInFlight;
 }
 
+/**
+ * Fetch with the shared auth behaviour: cookies included, and one silent refresh
+ * + replay on an expired access token. Returns the raw Response so streaming
+ * callers (SSE) get the same treatment as JSON ones — the assistant used to skip
+ * this and died with "Not authenticated" 15 minutes after login.
+ */
+export async function authedFetch(path: string, init?: RequestInit): Promise<Response> {
+  const res = await rawFetch(path, init);
+  // Auth routes are excluded so a failed login/refresh can't loop.
+  if (res.status === 401 && !path.startsWith("/api/auth/")) {
+    if (await tryRefresh()) return rawFetch(path, init);
+  }
+  return res;
+}
+
 /** Thin fetch wrapper: JSON in/out, cookies included, silent token refresh, typed errors. */
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  let res = await rawFetch(path, init);
-  // Expired access token: refresh once, replay the request. Auth routes are excluded
-  // so a failed login/refresh can't loop.
-  if (res.status === 401 && !path.startsWith("/api/auth/")) {
-    if (await tryRefresh()) res = await rawFetch(path, init);
-  }
+  const res = await authedFetch(path, init);
   if (!res.ok) {
     let detail = res.statusText;
     try {
