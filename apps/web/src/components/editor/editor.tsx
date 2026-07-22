@@ -11,6 +11,7 @@ import {
 } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/shadcn";
 import { AiToolbarButton } from "./ai-toolbar-button";
+import { FormatBar } from "./format-bar";
 import type { Block } from "@blocknote/core";
 import "@blocknote/shadcn/style.css";
 import { api, API_URL } from "@/lib/api";
@@ -246,23 +247,28 @@ function CollabEditor({
   }, [pageId]);
 
   return (
-    <BlockNoteView
-      editor={editor}
-      editable={editable}
-      theme={resolvedTheme === "dark" ? "dark" : "light"}
-      onChange={handleChange}
-      formattingToolbar={false}
-      className="lore-editor mt-4"
-      data-testid="page-editor"
-    >
-      <FormattingToolbarController
-        formattingToolbar={() => (
-          <FormattingToolbar>
-            <AiToolbarButton key="ai" />
-            {getFormattingToolbarItems()}
-          </FormattingToolbar>
-        )}
-      />
-    </BlockNoteView>
+    <>
+      {/* Persistent controls — the selection-only toolbar hid headings,
+          alignment and lists from anyone who never highlighted text. */}
+      <FormatBar editor={editor} editable={editable} />
+      <BlockNoteView
+        editor={editor}
+        editable={editable}
+        theme={resolvedTheme === "dark" ? "dark" : "light"}
+        onChange={handleChange}
+        formattingToolbar={false}
+        className="lore-editor mt-2"
+        data-testid="page-editor"
+      >
+        <FormattingToolbarController
+          formattingToolbar={() => (
+            <FormattingToolbar>
+              <AiToolbarButton key="ai" />
+              {getFormattingToolbarItems()}
+            </FormattingToolbar>
+          )}
+        />
+      </BlockNoteView>
+    </>
   );
 }
