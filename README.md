@@ -23,6 +23,9 @@ AI assistant (RAG + agent + persistent memory) that runs on a **local model** or
   approve before anything changes. Plus inline AI on selected text.
 - **Your AI, your choice** — pick a local model (Ollama) sized to your hardware by
   a built-in calculator, or bring an OpenRouter key. Embeddings always run locally.
+- **Migrate from Notion** — one-click "Connect Notion" (OAuth) imports your pages
+  and databases as native Lore content, then automatically revokes its own access
+  so nothing keeps reaching back into your Notion. See Settings → Migrate from Notion.
 
 See `docs/architecture.md` for the full map and `docs/decisions.md` for the why.
 
