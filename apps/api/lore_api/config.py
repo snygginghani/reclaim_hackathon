@@ -20,6 +20,19 @@ class Settings(BaseSettings):
     )
     upload_dir: str = "uploads"
 
+    # Public base URL of this API, used to build absolute URLs for uploaded assets
+    # (imported Notion images live under {api_base_url}/uploads/...).
+    api_base_url: str = "http://localhost:8300"
+
+    # Notion OAuth ("Connect Notion" migration). Registered once by the team at
+    # notion.so/my-integrations; when unset, the Connect button reports "not
+    # configured" instead of failing. The redirect URI must match the integration.
+    notion_client_id: str | None = None
+    notion_client_secret: str | None = None
+    notion_redirect_uri: str = "http://localhost:8300/api/notion/oauth/callback"
+    # Web origin to bounce back to after the OAuth callback completes.
+    web_base_url: str = "http://localhost:3000"
+
 
 @lru_cache
 def get_settings() -> Settings:
