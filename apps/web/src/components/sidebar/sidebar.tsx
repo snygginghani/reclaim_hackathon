@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Brain, Menu, PanelLeftClose, PanelLeftOpen, Search, Sparkles, Trash2, X } from "lucide-react";
+import { Brain, Menu, PanelLeftClose, PanelLeftOpen, Plug, Search, Sparkles, Trash2, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -226,6 +226,13 @@ function SidebarInner({
           Lore’s memory
         </Link>
         <ImportButton workspaceId={workspaceId} />
+        <Link
+          href={`/w/${workspaceId}/settings/notion`}
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <Plug className="size-4" />
+          Migrate from Notion
+        </Link>
         <button
           onClick={onTrash}
           className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
