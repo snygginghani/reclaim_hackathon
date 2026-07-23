@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 import asyncio
@@ -10,9 +11,11 @@ from .ai.embeddings import warm
 from .collab import make_server
 from .config import get_settings
 from .db import engine
+from .storage import upload_root
 from .routers import (
     agent,
     ai,
+    assets,
     assistant,
     auth,
     collab,
@@ -46,6 +49,10 @@ app.include_router(ai.router)
 app.include_router(assistant.router)
 app.include_router(agent.router)
 app.include_router(inline.router)
+app.include_router(assets.router)
+
+# Serve uploaded assets (editor images/files, re-hosted Notion imports).
+app.mount("/uploads", StaticFiles(directory=str(upload_root())), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
