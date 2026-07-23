@@ -9,6 +9,8 @@ import os
 import uuid
 from typing import AsyncIterator
 
+from sqlalchemy.orm.attributes import flag_modified
+
 from ..blocks import blocks_to_text
 from ..db import SessionLocal
 from ..models import DbProperty, DbValue, DbView, Document, Page
@@ -124,7 +126,9 @@ class _Importer:
 
     # --- pages & databases ---
 
-    def _add_page(self, title: str, kind: str, parent_id: uuid.UUID | None, position: float) -> Page:
+    async def _add_page(
+        self, title: str, kind: str, parent_id: uuid.UUID | None, position: float
+    ) -> Page:
         page = Page(
             id=uuid.uuid4(),
             workspace_id=self.workspace_id,
@@ -135,6 +139,9 @@ class _Importer:
             created_by=self.user_id,
         )
         self.db.add(page)
+        # Flush so dependent rows (Document, DbProperty, DbValue, child pages) can
+        # reference this page's id within the same transaction.
+        await self.db.flush()
         self.created_page_ids.append(page.id)
         return page
 
@@ -142,7 +149,7 @@ class _Importer:
         self, item: dict, lore_parent: uuid.UUID | None, children_map: dict, position: float
     ) -> AsyncIterator[dict]:
         title = convert.title_of(item)
-        page = self._add_page(title, "doc", lore_parent, position)
+        page = await self._add_page(title, "doc", lore_parent, position)
         self.id_map[item["id"]] = page.id
         blocks = await self._build_blocks(item["id"])
         await self._write_document(page.id, blocks)
@@ -162,7 +169,7 @@ class _Importer:
         self, item: dict, lore_parent: uuid.UUID | None, children_map: dict, position: float
     ) -> AsyncIterator[dict]:
         title = convert.rich_text_to_plain(item.get("title")) or "Untitled"
-        db_page = self._add_page(title, "database", lore_parent, position)
+        db_page = await self._add_page(title, "database", lore_parent, position)
         self.id_map[item["id"]] = db_page.id
 
         # One property per Notion schema column (the title column becomes the row
@@ -194,7 +201,7 @@ class _Importer:
         row_pos = POSITION_GAP
         for row in rows:
             row_title = convert.title_of(row)
-            row_page = self._add_page(row_title, "row", db_page.id, row_pos)
+            row_page = await self._add_page(row_title, "row", db_page.id, row_pos)
             self.id_map[row["id"]] = row_page.id
             row_pos += POSITION_GAP
             for name, (lore_prop_id, ntype) in prop_map.items():
@@ -263,6 +270,8 @@ class _Importer:
         yield _progress("linking", self.done, self.total, "Resolving internal links…")
         for doc in self.pending_link_docs:
             self._resolve_links(doc.blocks)
+            # In-place JSONB edits aren't auto-tracked; mark the column dirty.
+            flag_modified(doc, "blocks")
             doc.text_content = blocks_to_text(doc.blocks)
         self._resolve_relations()
         await self.db.commit()
