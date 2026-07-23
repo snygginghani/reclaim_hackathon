@@ -22,6 +22,7 @@ from .routers import (
     databases,
     documents,
     inline,
+    notion,
     pages,
     search,
     workspaces,
@@ -50,6 +51,7 @@ app.include_router(assistant.router)
 app.include_router(agent.router)
 app.include_router(inline.router)
 app.include_router(assets.router)
+app.include_router(notion.router)
 
 # Serve uploaded assets (editor images/files, re-hosted Notion imports).
 app.mount("/uploads", StaticFiles(directory=str(upload_root())), name="uploads")
