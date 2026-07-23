@@ -288,6 +288,29 @@ class AiSettings(Base):
     )
 
 
+class NotionConnection(Base):
+    """A transient Notion OAuth connection used only to run a migration. The
+    access token is Fernet-encrypted at rest and NEVER returned to the client.
+    The row is deleted on manual disconnect and automatically after a successful
+    import — Lore keeps no long-lived access to the user's Notion. One connection
+    per (workspace, user)."""
+
+    __tablename__ = "notion_connections"
+    __table_args__ = (UniqueConstraint("workspace_id", "user_id"),)
+    __mapper_args__ = {"eager_defaults": True}
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_encrypted: Mapped[str] = mapped_column(Text)
+    # Shown in the UI so the user can confirm which Notion workspace is connected.
+    notion_workspace_name: Mapped[str | None] = mapped_column(String(200), default=None)
+    bot_id: Mapped[str | None] = mapped_column(String(64), default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Favorite(Base):
     __tablename__ = "favorites"
     __table_args__ = (UniqueConstraint("user_id", "page_id"),)
