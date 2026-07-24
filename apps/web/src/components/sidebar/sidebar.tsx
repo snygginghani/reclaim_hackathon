@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BookOpen, Brain, FileArchive, Menu, PanelLeftClose, PanelLeftOpen, Plug, Search, Sparkles, Trash2, X } from "lucide-react";
+import { BookOpen, Brain, FileArchive, Menu, PanelLeftClose, PanelLeftOpen, Plug, Search, Shapes, Sparkles, Trash2, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -246,6 +246,13 @@ function SidebarInner({
         >
           <FileArchive className="size-4" />
           Migrate from Obsidian
+        </Link>
+        <Link
+          href={`/w/${workspaceId}/settings/affine`}
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <Shapes className="size-4" />
+          Migrate from AFFiNE
         </Link>
         <button
           onClick={onTrash}

@@ -13,6 +13,7 @@ from .config import get_settings
 from .db import engine
 from .storage import upload_root
 from .routers import (
+    affine,
     agent,
     ai,
     assets,
@@ -56,6 +57,7 @@ app.include_router(assets.router)
 app.include_router(notion.router)
 app.include_router(confluence.router)
 app.include_router(obsidian.router)
+app.include_router(affine.router)
 
 # Serve uploaded assets (editor images/files, re-hosted Notion imports).
 app.mount("/uploads", StaticFiles(directory=str(upload_root())), name="uploads")
