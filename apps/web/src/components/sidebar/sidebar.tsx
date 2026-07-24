@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BookOpen, Brain, FileArchive, Menu, PanelLeftClose, PanelLeftOpen, Plug, Search, Shapes, Sparkles, Trash2, X } from "lucide-react";
+import { Brain, Menu, PanelLeftClose, PanelLeftOpen, Search, Sparkles, Trash2, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -12,6 +12,7 @@ import { UserMenu } from "./user-menu";
 import { TrashDialog } from "./trash-dialog";
 import { InviteDialog } from "./invite-dialog";
 import { ImportButton } from "./import-button";
+import { MigrateMenu } from "./migrate-menu";
 import { useUiStore } from "@/stores/ui";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -226,34 +227,7 @@ function SidebarInner({
           Lore’s memory
         </Link>
         <ImportButton workspaceId={workspaceId} />
-        <Link
-          href={`/w/${workspaceId}/settings/notion`}
-          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          <Plug className="size-4" />
-          Migrate from Notion
-        </Link>
-        <Link
-          href={`/w/${workspaceId}/settings/confluence`}
-          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          <BookOpen className="size-4" />
-          Migrate from Confluence
-        </Link>
-        <Link
-          href={`/w/${workspaceId}/settings/obsidian`}
-          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          <FileArchive className="size-4" />
-          Migrate from Obsidian
-        </Link>
-        <Link
-          href={`/w/${workspaceId}/settings/affine`}
-          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          <Shapes className="size-4" />
-          Migrate from AFFiNE
-        </Link>
+        <MigrateMenu workspaceId={workspaceId} />
         <button
           onClick={onTrash}
           className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
