@@ -2,10 +2,9 @@
 
 The connection is transient — the encrypted token is deleted on disconnect and
 automatically after a successful import, so Lore keeps no ongoing access to the
-user's Notion (see NotionConnection)."""
+user's Notion (see NotionConnection). The import itself runs through the shared
+engine in `migrate/` driven by a `NotionAdapter`."""
 
-import json
-import time
 import uuid
 from urllib.parse import urlencode
 
@@ -19,45 +18,20 @@ from ..ai.ingest import ingest_page
 from ..config import get_settings
 from ..deps import CurrentUser, DbSession, require_membership
 from ..db import SessionLocal
+from ..migrate.adapters.notion import NotionAdapter
+from ..migrate.engine import run_import
+from ..migrate.oauth import require_configured, sign_state, sse, verify_state
 from ..models import NotionConnection
 from ..notion.client import NotionError, exchange_code, revoke_token
-from ..notion.importer import import_workspace
 
 router = APIRouter(prefix="/api/notion", tags=["notion"])
 
 NOTION_AUTHORIZE_URL = "https://api.notion.com/v1/oauth/authorize"
-STATE_TTL_SECONDS = 15 * 60
-
-
-def _sse(obj: dict) -> str:
-    return f"data: {json.dumps(obj)}\n\n"
-
-
-def _sign_state(user_id: uuid.UUID, workspace_id: uuid.UUID) -> str:
-    payload = {"u": str(user_id), "w": str(workspace_id), "t": int(time.time())}
-    return encrypt_secret(json.dumps(payload))
-
-
-def _verify_state(state: str) -> tuple[uuid.UUID, uuid.UUID] | None:
-    raw = decrypt_secret(state)
-    if raw is None:
-        return None
-    try:
-        data = json.loads(raw)
-        if int(time.time()) - int(data["t"]) > STATE_TTL_SECONDS:
-            return None
-        return uuid.UUID(data["u"]), uuid.UUID(data["w"])
-    except (KeyError, ValueError, TypeError):
-        return None
 
 
 def _require_configured() -> None:
     s = get_settings()
-    if not s.notion_client_id or not s.notion_client_secret:
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            "Notion integration is not configured on this server.",
-        )
+    require_configured(s.notion_client_id, s.notion_client_secret, "Notion")
 
 
 # --- connect ---
@@ -73,7 +47,7 @@ async def authorize_url(workspace_id: uuid.UUID, user: CurrentUser, db: DbSessio
         "response_type": "code",
         "owner": "user",
         "redirect_uri": s.notion_redirect_uri,
-        "state": _sign_state(user.id, workspace_id),
+        "state": sign_state(user.id, workspace_id),
     }
     return {"url": f"{NOTION_AUTHORIZE_URL}?{urlencode(params)}"}
 
@@ -87,7 +61,7 @@ async def oauth_callback(request: Request, db: DbSession) -> RedirectResponse:
     state = request.query_params.get("state") or ""
     err_redirect = f"{s.web_base_url}/onboarding"
 
-    verified = _verify_state(state)
+    verified = verify_state(state)
     if verified is None or not code:
         return RedirectResponse(f"{err_redirect}?notion_error=invalid_state")
     user_id, workspace_id = verified
@@ -153,8 +127,9 @@ async def _get_connection(db, workspace_id: uuid.UUID, user_id: uuid.UUID) -> No
 async def status_endpoint(workspace_id: uuid.UUID, user: CurrentUser, db: DbSession) -> dict:
     await require_membership(db, workspace_id, user.id, min_role="editor")
     conn = await _get_connection(db, workspace_id, user.id)
+    s = get_settings()
     return {
-        "configured": bool(get_settings().notion_client_id and get_settings().notion_client_secret),
+        "configured": bool(s.notion_client_id and s.notion_client_secret),
         "connected": conn is not None,
         "notion_workspace_name": conn.notion_workspace_name if conn else None,
     }
@@ -199,13 +174,13 @@ async def start_import(body: ImportBody, user: CurrentUser, db: DbSession) -> St
     async def stream():
         page_ids: list[str] = []
         try:
-            async for ev in import_workspace(workspace_id, user_id, token):
+            async for ev in run_import(workspace_id, user_id, NotionAdapter(token)):
                 if ev.get("type") == "imported":
                     page_ids = ev.get("page_ids", [])
-                yield _sse(ev)
+                yield sse(ev)
         except Exception as exc:  # noqa: BLE001
             # Keep the connection so the user can retry without reconnecting.
-            yield _sse({"type": "error", "error": str(exc)})
+            yield sse({"type": "error", "error": str(exc)})
             return
 
         # Success: index imported pages, then revoke + delete the token.
@@ -215,6 +190,6 @@ async def start_import(body: ImportBody, user: CurrentUser, db: DbSession) -> St
             except Exception:  # noqa: BLE001
                 pass
         await _revoke_and_delete(conn_id, token)
-        yield _sse({"type": "done", "pages": len(page_ids), "revoked": True})
+        yield sse({"type": "done", "pages": len(page_ids), "revoked": True})
 
     return StreamingResponse(stream(), media_type="text/event-stream")
