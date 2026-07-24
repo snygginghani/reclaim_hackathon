@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BookOpen, Brain, Menu, PanelLeftClose, PanelLeftOpen, Plug, Search, Sparkles, Trash2, X } from "lucide-react";
+import { BookOpen, Brain, FileArchive, Menu, PanelLeftClose, PanelLeftOpen, Plug, Search, Sparkles, Trash2, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -239,6 +239,13 @@ function SidebarInner({
         >
           <BookOpen className="size-4" />
           Migrate from Confluence
+        </Link>
+        <Link
+          href={`/w/${workspaceId}/settings/obsidian`}
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <FileArchive className="size-4" />
+          Migrate from Obsidian
         </Link>
         <button
           onClick={onTrash}
