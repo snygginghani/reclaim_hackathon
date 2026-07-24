@@ -126,11 +126,12 @@ def _sse_events(text: str) -> list[dict]:
 
 @pytest.fixture(autouse=True)
 def _patch_notion(monkeypatch):
-    import lore_api.notion.importer as importer
+    import lore_api.migrate.adapters.notion as notion_adapter
+    import lore_api.migrate.engine as engine
     import lore_api.routers.notion as router
 
-    monkeypatch.setattr(importer, "NotionClient", FakeNotionClient)
-    monkeypatch.setattr(importer, "save_bytes", lambda data, ext=None: "/uploads/fake.png")
+    monkeypatch.setattr(notion_adapter, "NotionClient", FakeNotionClient)
+    monkeypatch.setattr(engine, "save_bytes", lambda data, ext=None: "/uploads/fake.png")
 
     revoked: list[str] = []
 

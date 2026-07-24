@@ -2,8 +2,8 @@
 
 import time
 
+from lore_api.migrate import oauth
 from lore_api.notion import convert as c
-from lore_api.routers import notion as notion_router
 
 
 def _text(content: str, **annotations) -> dict:
@@ -140,17 +140,17 @@ import uuid  # noqa: E402
 
 def test_state_roundtrip_and_tamper():
     u, w = uuid.uuid4(), uuid.uuid4()
-    state = notion_router._sign_state(u, w)
-    assert notion_router._verify_state(state) == (u, w)
-    assert notion_router._verify_state(state + "tamper") is None
-    assert notion_router._verify_state("garbage") is None
+    state = oauth.sign_state(u, w)
+    assert oauth.verify_state(state) == (u, w)
+    assert oauth.verify_state(state + "tamper") is None
+    assert oauth.verify_state("garbage") is None
 
 
 def test_state_expiry(monkeypatch):
     u, w = uuid.uuid4(), uuid.uuid4()
-    state = notion_router._sign_state(u, w)
+    state = oauth.sign_state(u, w)
     # Jump past the TTL (compute the future instant before patching so the fake
     # doesn't recurse into the patched clock).
-    future = time.time() + notion_router.STATE_TTL_SECONDS + 10
-    monkeypatch.setattr(notion_router.time, "time", lambda: future)
-    assert notion_router._verify_state(state) is None
+    future = time.time() + oauth.STATE_TTL_SECONDS + 10
+    monkeypatch.setattr(oauth.time, "time", lambda: future)
+    assert oauth.verify_state(state) is None
