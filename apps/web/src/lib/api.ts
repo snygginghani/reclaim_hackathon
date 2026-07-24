@@ -19,10 +19,14 @@ export class ApiError extends Error {
 }
 
 async function rawFetch(path: string, init?: RequestInit): Promise<Response> {
+  // FormData sets its own multipart Content-Type (with boundary) — don't force JSON.
+  const isForm = typeof FormData !== "undefined" && init?.body instanceof FormData;
+  const headers: Record<string, string> = {};
+  if (!isForm) headers["Content-Type"] = "application/json";
   return fetch(`${API_URL}${path}`, {
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...init?.headers },
     ...init,
+    headers: { ...headers, ...(init?.headers as Record<string, string> | undefined) },
   });
 }
 
