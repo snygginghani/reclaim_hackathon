@@ -311,6 +311,30 @@ class NotionConnection(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class ConfluenceConnection(Base):
+    """A transient Confluence (Atlassian OAuth 3LO) connection used only to run a
+    migration. The access token is Fernet-encrypted at rest and NEVER returned to
+    the client. No refresh token is stored (the `offline_access` scope isn't
+    requested), so the access token self-expires (~1h); the row is also deleted on
+    manual disconnect and after a successful import. `cloud_id` is the Atlassian
+    site id used to build API URLs. One connection per (workspace, user)."""
+
+    __tablename__ = "confluence_connections"
+    __table_args__ = (UniqueConstraint("workspace_id", "user_id"),)
+    __mapper_args__ = {"eager_defaults": True}
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_encrypted: Mapped[str] = mapped_column(Text)
+    cloud_id: Mapped[str] = mapped_column(String(64))
+    # Shown in the UI so the user can confirm which Confluence site is connected.
+    site_name: Mapped[str | None] = mapped_column(String(200), default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Favorite(Base):
     __tablename__ = "favorites"
     __table_args__ = (UniqueConstraint("user_id", "page_id"),)

@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     notion_client_id: str | None = None
     notion_client_secret: str | None = None
     notion_redirect_uri: str = "http://localhost:8300/api/notion/oauth/callback"
+
+    # Confluence / Atlassian OAuth 2.0 (3LO) ("Migrate from Confluence"). Registered
+    # once by the team at developer.atlassian.com; when unset, the Connect button
+    # reports "not configured". The callback URL must match the Atlassian app.
+    confluence_client_id: str | None = None
+    confluence_client_secret: str | None = None
+    confluence_redirect_uri: str = "http://localhost:8300/api/confluence/oauth/callback"
+
     # Web origin to bounce back to after the OAuth callback completes.
     web_base_url: str = "http://localhost:3000"
 
