@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Brain, Menu, PanelLeftClose, PanelLeftOpen, Plug, Search, Sparkles, Trash2, X } from "lucide-react";
+import { BookOpen, Brain, Menu, PanelLeftClose, PanelLeftOpen, Plug, Search, Sparkles, Trash2, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -232,6 +232,13 @@ function SidebarInner({
         >
           <Plug className="size-4" />
           Migrate from Notion
+        </Link>
+        <Link
+          href={`/w/${workspaceId}/settings/confluence`}
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <BookOpen className="size-4" />
+          Migrate from Confluence
         </Link>
         <button
           onClick={onTrash}
