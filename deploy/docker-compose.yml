@@ -1,0 +1,70 @@
+# Production stack for the demo box. Single instance by necessity: the Yjs
+# collab server holds document state in process memory (apps/api/lore_api/main.py),
+# so a second replica would diverge.
+name: lore-prod
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: lore
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: lore
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lore -d lore"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ../apps/api
+    environment:
+      LORE_DATABASE_URL: postgresql+asyncpg://lore:${POSTGRES_PASSWORD}@db:5432/lore
+      LORE_JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      LORE_CORS_ORIGINS: '["https://${SITE_HOST}"]'
+      LORE_API_BASE_URL: https://${SITE_HOST}
+      LORE_WEB_BASE_URL: https://${SITE_HOST}
+      LORE_UPLOAD_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
+      - hfcache:/app/.cache/huggingface
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../apps/web
+      args:
+        NEXT_PUBLIC_API_URL: https://${SITE_HOST}
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      - web
+      - api
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  uploads:
+  hfcache:
+  caddydata:
+  caddyconfig:

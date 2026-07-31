@@ -1,0 +1,19 @@
+# Everything is served from one origin. That is not cosmetic: the auth cookies
+# are SameSite=Lax with no Secure flag (apps/api/lore_api/security.py), so a
+# split web/API hostname would stop sending them and log everyone out.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	# WebSocket upgrade for the Yjs collab endpoint is handled by reverse_proxy.
+	handle /api/* {
+		reverse_proxy api:8300
+	}
+
+	handle /uploads/* {
+		reverse_proxy api:8300
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}
