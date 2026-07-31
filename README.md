@@ -28,7 +28,7 @@ OpenRouter key. Embeddings always run locally, whatever you choose. The importer
 hand back their own keys when they're done — Notion's token is revoked outright,
 and Confluence never requests offline access, so its token expires on its own and
 is deleted after the import. Nothing keeps reaching back into accounts you already
-migrated away from.
+migrated away from. The code is [MIT licensed](LICENSE) — fork it, run it, keep it.
 
 ## Memory is structural
 
