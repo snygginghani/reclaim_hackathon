@@ -60,7 +60,9 @@ async def list_members(workspace_id: uuid.UUID, user: CurrentUser, db: DbSession
         )
     ).all()
     return [
-        MemberOut(user_id=u.id, role=m.role, name=u.name, email=u.email, avatar_hue=u.avatar_hue)
+        MemberOut(
+            user_id=u.id, role=m.role, name=u.name, username=u.username, avatar_hue=u.avatar_hue
+        )
         for m, u in rows
     ]
 

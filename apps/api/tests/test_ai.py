@@ -190,7 +190,7 @@ async def test_ai_settings_are_per_user_not_per_workspace(client: AsyncClient):
     exposes or overwrites someone else's provider and key."""
     await client.post(
         "/api/auth/register",
-        json={"email": "ai-owner@example.com", "password": "long-enough-1", "name": "O"},
+        json={"username": "ai-owner", "password": "long-enough-1", "name": "O"},
     )
     ws = await make_workspace(client)
     invite = (await client.post(f"/api/workspaces/{ws}/invites", json={"role": "editor"})).json()
@@ -200,7 +200,7 @@ async def test_ai_settings_are_per_user_not_per_workspace(client: AsyncClient):
     await client.post("/api/auth/logout")
     await client.post(
         "/api/auth/register",
-        json={"email": "ai-editor@example.com", "password": "long-enough-1", "name": "E"},
+        json={"username": "ai-editor", "password": "long-enough-1", "name": "E"},
     )
     await client.post(f"/api/workspaces/invites/{invite['id']}/accept")
 
@@ -219,7 +219,7 @@ async def test_ai_settings_are_per_user_not_per_workspace(client: AsyncClient):
     await client.post("/api/auth/logout")
     await client.post(
         "/api/auth/login",
-        json={"email": "ai-owner@example.com", "password": "long-enough-1"},
+        json={"username": "ai-owner", "password": "long-enough-1"},
     )
     assert (await client.get("/api/ai/settings")).json()["default_model"] == "big"
 

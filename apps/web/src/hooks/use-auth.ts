@@ -17,7 +17,7 @@ export function useMe() {
 export function useLogin() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { email: string; password: string }) =>
+    mutationFn: (body: { username: string; password: string }) =>
       api<User>("/api/auth/login", { method: "POST", body: JSON.stringify(body) }),
     onSuccess: (user) => qc.setQueryData(["me"], user),
   });
@@ -26,7 +26,7 @@ export function useLogin() {
 export function useRegister() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { email: string; password: string; name: string }) =>
+    mutationFn: (body: { username: string; password: string; name: string }) =>
       api<User>("/api/auth/register", { method: "POST", body: JSON.stringify(body) }),
     onSuccess: (user) => qc.setQueryData(["me"], user),
   });

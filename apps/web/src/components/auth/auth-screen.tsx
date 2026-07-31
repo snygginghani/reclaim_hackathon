@@ -22,7 +22,7 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
   const pending = login.isPending || register.isPending;
 
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,8 +31,8 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
     e.preventDefault();
     setError(null);
     try {
-      if (mode === "register") await register.mutateAsync({ name, email, password });
-      else await login.mutateAsync({ email, password });
+      if (mode === "register") await register.mutateAsync({ name, username, password });
+      else await login.mutateAsync({ username, password });
       router.replace(next);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
@@ -79,17 +79,24 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
           )}
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="email" className="text-sm font-medium">
-              Email
-            </label>
+            <div className="flex items-baseline justify-between">
+              <label htmlFor="username" className="text-sm font-medium">
+                Username
+              </label>
+              {mode === "register" && (
+                <span className="text-xs text-muted-foreground">3–30 characters</span>
+              )}
+            </div>
             <Input
-              id="email"
-              type="email"
-              autoComplete="email"
+              id="username"
+              type="text"
+              autoComplete="username"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              minLength={3}
+              maxLength={30}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="ada"
             />
           </div>
 

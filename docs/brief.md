@@ -27,13 +27,13 @@ A local-first, real-time collaborative workspace like Notion, with a deeply inte
 - **Database:** PostgreSQL 16 + **pgvector** (one database for relational data, full-text search, and vectors — no separate vector DB).
 - **Real-time:** Yjs in the browser ↔ **`pycrdt` / `pycrdt-websocket`** on FastAPI (this is what Jupyter uses; it interoperates with Yjs). WebSockets for collab + presence; SSE for AI token streaming.
 - **AI runtimes:** **Ollama** for local models; **OpenRouter** for cloud models. Embeddings run locally via **fastembed** (ONNX, CPU-friendly) in BOTH modes so RAG never depends on the cloud.
-- **Auth:** email + password (argon2), JWT access/refresh, httpOnly cookies. Structure so OAuth can be added later; do not build OAuth now.
+- **Auth:** username + password (argon2), JWT access/refresh, httpOnly cookies. No email is stored, so there is no password recovery. Structure so OAuth can be added later; do not build OAuth now.
 
 Monorepo layout: `apps/web` (Next.js), `apps/api` (FastAPI), `packages/shared` (shared types via OpenAPI-generated client), `docker-compose.yml`, `docs/`.
 
 ## 3. Workspace features (Notion parity scope)
 
-1. **Workspaces & members** — create/join workspaces, member roles (owner/editor/viewer), invite by email link.
+1. **Workspaces & members** — create/join workspaces, member roles (owner/editor/viewer), invite by shareable link.
 2. **Page tree** — infinitely nestable pages in a collapsible sidebar; drag to reorder/re-nest; favorites; trash with restore; page icons (emoji picker) and cover images.
 3. **Block editor** — paragraphs, headings 1–3, bulleted/numbered/todo lists, toggles, quotes, callouts, dividers, code blocks with syntax highlight, images (upload + drag-drop), tables, embeds. Slash-command menu (`/`), drag handles, block selection, markdown shortcuts (`#`, `-`, `[]`, ` ``` `), `@`-mention pages (creates backlinks).
 4. **Databases** — Notion-style: properties (text, number, select, multi-select, date, checkbox, URL, relation), views: **table, board (kanban), list, calendar**, with filters, sorts, and grouping. Inline and full-page databases. Open any row as a page.

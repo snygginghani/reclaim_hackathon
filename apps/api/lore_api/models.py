@@ -29,7 +29,9 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
+    # Stored lowercased (normalized in the auth schemas), so a plain unique index
+    # is enough to make lookups case-insensitive.
+    username: Mapped[str] = mapped_column(String(30), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     name: Mapped[str] = mapped_column(String(120))
     # Deterministic avatar hue (0-360) picked at signup; avatars are initials on a colored disc.

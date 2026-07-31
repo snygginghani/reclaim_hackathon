@@ -1,7 +1,8 @@
+import re
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ORMModel(BaseModel):
@@ -10,21 +11,53 @@ class ORMModel(BaseModel):
 
 # --- auth ---
 
+USERNAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{2,29}$")
+
+# Names that would collide with routes or read as official.
+RESERVED_USERNAMES = frozenset(
+    {"admin", "api", "root", "me", "login", "logout", "register", "settings", "new", "null"}
+)
+
+
+def _normalize_username(v: object) -> object:
+    """Fold to the canonical form before validation, so "Ada " registers as "ada"."""
+    return v.strip().lower() if isinstance(v, str) else v
+
 
 class RegisterIn(BaseModel):
-    email: EmailStr
+    username: str
     password: str = Field(min_length=8, max_length=128)
     name: str = Field(min_length=1, max_length=120)
 
+    _normalize = field_validator("username", mode="before")(_normalize_username)
+
+    @field_validator("username")
+    @classmethod
+    def _check_username(cls, v: str) -> str:
+        # Hand-rolled rather than Field(pattern=...) so the form shows prose
+        # instead of the raw regex.
+        if not USERNAME_RE.match(v):
+            raise ValueError(
+                "Username must be 3-30 characters: lowercase letters, numbers, "
+                "underscores or hyphens, starting with a letter or number"
+            )
+        if v in RESERVED_USERNAMES:
+            raise ValueError("This username is reserved")
+        return v
+
 
 class LoginIn(BaseModel):
-    email: EmailStr
+    # Deliberately unvalidated beyond normalization: a malformed username must fall
+    # through to the same 401 as a wrong password, not a distinguishable 422.
+    username: str
     password: str
+
+    _normalize = field_validator("username", mode="before")(_normalize_username)
 
 
 class UserOut(ORMModel):
     id: uuid.UUID
-    email: str
+    username: str
     name: str
     avatar_hue: int
 
@@ -48,7 +81,7 @@ class MemberOut(ORMModel):
     user_id: uuid.UUID
     role: str
     name: str
-    email: str
+    username: str
     avatar_hue: int
 
 

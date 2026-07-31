@@ -108,7 +108,7 @@ async def test_workspace_isolation(client: AsyncClient):
     """A second user cannot see or touch the first user's workspace."""
     await client.post(
         "/api/auth/register",
-        json={"email": "owner@example.com", "password": "long-enough-1", "name": "Owner"},
+        json={"username": "owner", "password": "long-enough-1", "name": "Owner"},
     )
     ws = await make_workspace(client, "Private")
     page = await make_page(client, ws, "Secret")
@@ -116,7 +116,7 @@ async def test_workspace_isolation(client: AsyncClient):
     await client.post("/api/auth/logout")
     await client.post(
         "/api/auth/register",
-        json={"email": "intruder@example.com", "password": "long-enough-1", "name": "Intruder"},
+        json={"username": "intruder", "password": "long-enough-1", "name": "Intruder"},
     )
     assert (await client.get("/api/pages", params={"workspace_id": ws})).status_code == 404
     assert (await client.get(f"/api/pages/{page['id']}")).status_code == 404
@@ -128,7 +128,7 @@ async def test_workspace_isolation(client: AsyncClient):
 async def test_invite_flow(client: AsyncClient):
     await client.post(
         "/api/auth/register",
-        json={"email": "host@example.com", "password": "long-enough-1", "name": "Host"},
+        json={"username": "host", "password": "long-enough-1", "name": "Host"},
     )
     ws = await make_workspace(client, "Team")
     invite = (await client.post(f"/api/workspaces/{ws}/invites", json={"role": "editor"})).json()
@@ -140,7 +140,7 @@ async def test_invite_flow(client: AsyncClient):
 
     await client.post(
         "/api/auth/register",
-        json={"email": "guest@example.com", "password": "long-enough-1", "name": "Guest"},
+        json={"username": "guest", "password": "long-enough-1", "name": "Guest"},
     )
     r = await client.post(f"/api/workspaces/invites/{invite['id']}/accept")
     assert r.status_code == 200 and r.json()["role"] == "editor"

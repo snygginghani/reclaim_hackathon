@@ -60,7 +60,7 @@ export function UserMenu() {
       <DropdownMenuContent className="w-56" align="start" side="top">
         <DropdownMenuLabel>
           <p className="text-sm font-medium">{me.data.name}</p>
-          <p className="text-xs font-normal text-muted-foreground">{me.data.email}</p>
+          <p className="text-xs font-normal text-muted-foreground">@{me.data.username}</p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuLabel className="text-xs text-muted-foreground">Theme</DropdownMenuLabel>

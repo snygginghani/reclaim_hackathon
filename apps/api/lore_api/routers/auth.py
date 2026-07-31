@@ -1,7 +1,7 @@
 import random
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from ..deps import CurrentUser, DbSession
 from ..models import User
@@ -20,14 +20,15 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def register(body: RegisterIn, response: Response, db: DbSession) -> User:
-    email = body.email.lower()
     exists = (
-        await db.execute(select(User).where(func.lower(User.email) == email))
+        await db.execute(select(User).where(User.username == body.username))
     ).scalar_one_or_none()
     if exists:
-        raise HTTPException(status.HTTP_409_CONFLICT, "An account with this email already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "An account with this username already exists"
+        )
     user = User(
-        email=email,
+        username=body.username,
         password_hash=hash_password(body.password),
         name=body.name.strip(),
         avatar_hue=random.randint(0, 359),
@@ -40,13 +41,12 @@ async def register(body: RegisterIn, response: Response, db: DbSession) -> User:
 
 @router.post("/login", response_model=UserOut)
 async def login(body: LoginIn, response: Response, db: DbSession) -> User:
-    email = body.email.lower()
     user = (
-        await db.execute(select(User).where(func.lower(User.email) == email))
+        await db.execute(select(User).where(User.username == body.username))
     ).scalar_one_or_none()
-    # Same error for unknown email and wrong password: no account enumeration.
+    # Same error for unknown username and wrong password: no account enumeration.
     if user is None or not verify_password(body.password, user.password_hash):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Incorrect email or password")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Incorrect username or password")
     set_auth_cookies(response, user.id)
     return user
 

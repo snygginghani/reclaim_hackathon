@@ -69,7 +69,7 @@ async def test_collab_seed_granted_exactly_once(user_client: AsyncClient):
 async def test_collab_seed_requires_editor(client: AsyncClient):
     await client.post(
         "/api/auth/register",
-        json={"email": "seed-owner@example.com", "password": "long-enough-1", "name": "O"},
+        json={"username": "seed-owner", "password": "long-enough-1", "name": "O"},
     )
     ws = await make_workspace(client)
     page = await make_page(client, ws, "Doc")
@@ -78,7 +78,7 @@ async def test_collab_seed_requires_editor(client: AsyncClient):
     await client.post("/api/auth/logout")
     await client.post(
         "/api/auth/register",
-        json={"email": "seed-viewer@example.com", "password": "long-enough-1", "name": "V"},
+        json={"username": "seed-viewer", "password": "long-enough-1", "name": "V"},
     )
     await client.post(f"/api/workspaces/invites/{invite['id']}/accept")
     r = await client.post(f"/api/pages/{page['id']}/collab-seed")
