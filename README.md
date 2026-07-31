@@ -1,74 +1,58 @@
-# Lore
+# Lore — the workspace for knowledge that stays yours
 
-**Your second brain, with a memory.** A local-first, real-time collaborative
-workspace — Notion-class pages, databases, and search — with a deeply integrated
-AI assistant (RAG + agent + persistent memory) that runs on a **local model** or
-**your own OpenRouter key**. Every AI answer cites the exact source block.
-
-> Named Lore because the built-in AI learns your lore — your projects, context,
-> and history — and works alongside you inside your workspace.
-
-## What's inside
-
-- **Editor** — a Notion-style block editor (BlockNote): slash commands, all block
-  types, markdown shortcuts, drag handles, images, tables, code.
-- **Real-time collaboration** — live cursors and presence, character-level CRDT
-  merge (Yjs ↔ pycrdt), offline edits reconcile on reconnect.
-- **Databases** — typed properties and **table / board / list / calendar** views
-  with filters, sorts, and grouping; every row opens as a full page.
-- **Search** — instant Cmd+K palette over hybrid full-text + semantic search.
-- **Ask Lore** — a docked assistant (⌘J) that answers from your workspace with
-  clickable citations, remembers durable facts about you, generates documents
-  (summary/study-guide/FAQ/outline), and — in **Agent** mode — proposes edits you
-  approve before anything changes. Plus inline AI on selected text.
-- **Your AI, your choice** — pick a local model (Ollama) sized to your hardware by
-  a built-in calculator, or bring an OpenRouter key. Embeddings always run locally.
-- **Migrate from Notion** — one-click "Connect Notion" (OAuth) imports your pages
-  and databases as native Lore content, then automatically revokes its own access
-  so nothing keeps reaching back into your Notion. See Settings → Migrate from Notion.
-
-See `docs/architecture.md` for the full map and `docs/decisions.md` for the why.
-
-## Stack
-
-Next.js 15 (App Router, TS) · Tailwind v4 · shadcn/ui · BlockNote · Yjs ·
-TanStack Query · Zustand · Framer Motion · **FastAPI** · SQLAlchemy 2 async ·
-pycrdt-websocket · fastembed · **PostgreSQL 16 + pgvector** · Ollama / OpenRouter.
-
-## Run it (dev)
-
-Prereqs: Docker Desktop, Node 20+, Python 3.12+, [uv](https://docs.astral.sh/uv/).
+Real-time collaborative pages and databases where every AI answer cites the block
+it came from, your machine is the only machine, and you decide which model — if
+any — ever reads your notes.
 
 ```powershell
-# first time only
-docker compose up -d db                 # Postgres + pgvector on :5433
-cd apps/api;  uv sync;  uv run alembic upgrade head
-uv run python scripts/seed.py           # optional: demo workspace + content
-cd ../web;  npm install;  cd ../..
-
-# every time — starts db + api + web in their own windows
 powershell -File scripts/dev.ps1
 ```
 
-- Web: http://localhost:3000  ·  API docs: http://localhost:8300/docs
-- Demo login (after seeding): `demo@example.com` / `demo-password-1`
+Runs the whole stack — Postgres, API, web — at **localhost:3000**.
+First-time install: [`docs/setup.md`](docs/setup.md).
 
-To enable AI chat, open **Settings → AI** in the app and either install a
-recommended local model (needs [Ollama](https://ollama.com/download)) or paste an
-OpenRouter key. Everything else works without a model.
+---
 
-## Tests
+## Citation is the product
 
-```powershell
-cd apps/api;  uv run pytest        # 67 backend tests
-cd apps/web;  npx tsc --noEmit && npx eslint src
-```
+Ask Lore anything and every claim points back at the exact source block, one click
+away. No summary you have to take on faith, no confident paragraph with nothing
+underneath it. Retrieval is hybrid — full-text and semantic — so the citation is
+the answer's origin, not a plausible match found afterward.
 
-## Repository layout
+## Sovereignty is the default
 
-| Path | What |
-|---|---|
-| `apps/web` | Next.js frontend |
-| `apps/api` | FastAPI backend (`lore_api/`), migrations, tests, `scripts/seed.py` |
-| `docs/` | brief · architecture · decisions · design system |
-| `scripts/dev.ps1` | one-command dev stack |
+Lore runs on your hardware, against your Postgres. Pick a local model through
+Ollama, sized to your machine by a built-in calculator, or bring your own
+OpenRouter key. Embeddings always run locally, whatever you choose. The importers
+hand back their own keys when they're done — Notion's token is revoked outright,
+and Confluence never requests offline access, so its token expires on its own and
+is deleted after the import. Nothing keeps reaching back into accounts you already
+migrated away from.
+
+## Memory is structural
+
+The assistant accumulates durable facts about your projects, your context, and
+your history, and carries them across sessions — that is what the name means. In
+Agent mode it proposes edits to your workspace and waits; nothing changes until
+you approve them.
+
+---
+
+## Built for
+
+People whose notes are the work: researchers, students, engineering teams, and
+anyone who has watched a knowledge base become a subscription to someone else's
+server. If shipping your documents to a third-party model isn't acceptable, Lore
+is designed for you.
+
+## Bring what you already wrote
+
+One **Migrate** menu imports from **Notion** and **Confluence** over OAuth,
+**Obsidian** from a vault upload, and **AFFiNE** from a `.affine` snapshot — all
+converted to native Lore pages and databases, not attachments.
+
+---
+
+Setup, architecture, and the reasoning behind the design live in [`docs/`](docs/) —
+[setup](docs/setup.md) · [architecture](docs/architecture.md) · [decisions](docs/decisions.md).
