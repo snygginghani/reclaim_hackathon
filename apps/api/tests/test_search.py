@@ -78,13 +78,13 @@ async def test_search_excludes_trash_and_other_workspaces(user_client: AsyncClie
 async def test_search_requires_membership(client: AsyncClient):
     await client.post(
         "/api/auth/register",
-        json={"email": "search-a@example.com", "password": "long-enough-1", "name": "A"},
+        json={"username": "search-a", "password": "long-enough-1", "name": "A"},
     )
     ws = await make_workspace(client)
     await client.post("/api/auth/logout")
     await client.post(
         "/api/auth/register",
-        json={"email": "search-b@example.com", "password": "long-enough-1", "name": "B"},
+        json={"username": "search-b", "password": "long-enough-1", "name": "B"},
     )
     r = await client.get("/api/search", params={"workspace_id": ws, "q": "anything"})
     assert r.status_code == 404

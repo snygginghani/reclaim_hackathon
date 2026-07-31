@@ -45,7 +45,7 @@ async def test_content_roundtrip(user_client: AsyncClient):
 async def test_content_requires_membership(client: AsyncClient):
     await client.post(
         "/api/auth/register",
-        json={"email": "doc-owner@example.com", "password": "long-enough-1", "name": "O"},
+        json={"username": "doc-owner", "password": "long-enough-1", "name": "O"},
     )
     ws = await make_workspace(client)
     page = await make_page(client, ws, "Private doc")
@@ -54,7 +54,7 @@ async def test_content_requires_membership(client: AsyncClient):
     await client.post("/api/auth/logout")
     await client.post(
         "/api/auth/register",
-        json={"email": "doc-intruder@example.com", "password": "long-enough-1", "name": "I"},
+        json={"username": "doc-intruder", "password": "long-enough-1", "name": "I"},
     )
     assert (await client.get(f"/api/pages/{page['id']}/content")).status_code == 404
     assert (

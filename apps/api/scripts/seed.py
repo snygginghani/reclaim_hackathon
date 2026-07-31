@@ -29,7 +29,7 @@ from lore_api.models import (  # noqa: E402
 )
 from lore_api.security import hash_password  # noqa: E402
 
-DEMO_EMAIL = "demo@example.com"
+DEMO_USERNAME = "demo"
 
 
 def para(text: str) -> dict:
@@ -54,7 +54,7 @@ def heading(text: str, level: int = 2) -> dict:
 async def main() -> None:
     async with SessionLocal() as db:
         existing = (
-            await db.execute(select(User).where(User.email == DEMO_EMAIL))
+            await db.execute(select(User).where(User.username == DEMO_USERNAME))
         ).scalar_one_or_none()
         if existing:
             # Reset: workspaces cascade-delete pages/docs/chunks/etc.
@@ -70,7 +70,7 @@ async def main() -> None:
             user = existing
         else:
             user = User(
-                email=DEMO_EMAIL,
+                username=DEMO_USERNAME,
                 password_hash=hash_password("demo-password-1"),
                 name="Demo User",
                 avatar_hue=265,
@@ -196,7 +196,7 @@ async def main() -> None:
             db.add(DbValue(row_id=row.id, property_id=status.id, value={"select": st}))
 
         await db.commit()
-        print(f"Seeded workspace 'Acme Product' for {DEMO_EMAIL} (password: demo-password-1)")
+        print(f"Seeded workspace 'Acme Product' for {DEMO_USERNAME} (password: demo-password-1)")
 
 
 if __name__ == "__main__":

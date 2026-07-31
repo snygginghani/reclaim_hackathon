@@ -68,7 +68,7 @@ async def test_memory_crud_and_isolation(user_client: AsyncClient):
 async def test_memory_is_per_user(client: AsyncClient):
     await client.post(
         "/api/auth/register",
-        json={"email": "mem-a@example.com", "password": "long-enough-1", "name": "A"},
+        json={"username": "mem-a", "password": "long-enough-1", "name": "A"},
     )
     ws = await make_workspace(client)
     await client.post(f"/api/ai/memory?workspace_id={ws}", json={"content": "A's secret fact"})
@@ -77,7 +77,7 @@ async def test_memory_is_per_user(client: AsyncClient):
     await client.post("/api/auth/logout")
     await client.post(
         "/api/auth/register",
-        json={"email": "mem-b@example.com", "password": "long-enough-1", "name": "B"},
+        json={"username": "mem-b", "password": "long-enough-1", "name": "B"},
     )
     await client.post(f"/api/workspaces/invites/{invite['id']}/accept")
     # B is in the same workspace but sees none of A's memories.

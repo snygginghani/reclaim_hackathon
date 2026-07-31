@@ -2,7 +2,7 @@
 
 export interface User {
   id: string;
-  email: string;
+  username: string;
   name: string;
   avatar_hue: number;
 }
@@ -20,7 +20,7 @@ export interface Member {
   user_id: string;
   role: Role;
   name: string;
-  email: string;
+  username: string;
   avatar_hue: number;
 }
 
