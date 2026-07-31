@@ -70,7 +70,9 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
       else if (Array.isArray(body.detail) && body.detail[0]?.msg) {
         const first = body.detail[0];
         const field = Array.isArray(first.loc) ? String(first.loc.at(-1)) : "";
-        detail = field && field !== "body" ? `${field}: ${first.msg}` : String(first.msg);
+        // Strip pydantic's "Value error, " prefix so custom messages read as prose.
+        const msg = String(first.msg).replace(/^Value error, /, "");
+        detail = field && field !== "body" ? `${field}: ${msg}` : msg;
       }
     } catch {
       // non-JSON error body; keep statusText

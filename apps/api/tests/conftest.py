@@ -52,7 +52,7 @@ async def user_client(client: AsyncClient):
     resp = await client.post(
         "/api/auth/register",
         json={
-            "email": f"ada-{uuid.uuid4().hex[:10]}@example.com",
+            "username": f"ada-{uuid.uuid4().hex[:10]}",
             "password": "correct-horse-9",
             "name": "Ada",
         },

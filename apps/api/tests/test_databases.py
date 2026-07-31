@@ -135,7 +135,7 @@ async def test_views_crud_and_last_view_protection(user_client: AsyncClient):
 async def test_database_isolation(client: AsyncClient):
     await client.post(
         "/api/auth/register",
-        json={"email": "db-owner@example.com", "password": "long-enough-1", "name": "O"},
+        json={"username": "db-owner", "password": "long-enough-1", "name": "O"},
     )
     ws = await make_workspace(client)
     d = await make_db(client, ws)
@@ -144,7 +144,7 @@ async def test_database_isolation(client: AsyncClient):
     await client.post("/api/auth/logout")
     await client.post(
         "/api/auth/register",
-        json={"email": "db-intruder@example.com", "password": "long-enough-1", "name": "I"},
+        json={"username": "db-intruder", "password": "long-enough-1", "name": "I"},
     )
     assert (await client.get(f"/api/databases/{db_id}")).status_code == 404
     assert (await client.get(f"/api/databases/{db_id}/rows")).status_code == 404

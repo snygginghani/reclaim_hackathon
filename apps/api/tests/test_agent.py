@@ -83,14 +83,14 @@ async def test_agent_searches_then_proposes_write(user_client: AsyncClient, monk
 async def test_agent_requires_editor(client: AsyncClient):
     await client.post(
         "/api/auth/register",
-        json={"email": "agent-owner@example.com", "password": "long-enough-1", "name": "O"},
+        json={"username": "agent-owner", "password": "long-enough-1", "name": "O"},
     )
     ws = await make_workspace(client)
     invite = (await client.post(f"/api/workspaces/{ws}/invites", json={"role": "viewer"})).json()
     await client.post("/api/auth/logout")
     await client.post(
         "/api/auth/register",
-        json={"email": "agent-viewer@example.com", "password": "long-enough-1", "name": "V"},
+        json={"username": "agent-viewer", "password": "long-enough-1", "name": "V"},
     )
     await client.post(f"/api/workspaces/invites/{invite['id']}/accept")
     r = await client.post("/api/ai/agent", json={"workspace_id": ws, "message": "do something"})
