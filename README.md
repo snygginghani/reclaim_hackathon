@@ -4,8 +4,8 @@ Real-time collaborative pages and databases where every AI answer cites the bloc
 it came from, your machine is the only machine, and you decide which model — if
 any — ever reads your notes.
 
-```powershell
-powershell -File scripts/dev.ps1
+```bash
+./scripts/dev.sh
 ```
 
 Runs the whole stack — Postgres, API, web — at **localhost:3000**.
