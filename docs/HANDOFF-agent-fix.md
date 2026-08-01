@@ -9,13 +9,15 @@ AI layer (RAG + agent + memory). Monorepo at repo root:
 - `apps/api` — FastAPI, SQLAlchemy 2 async, Postgres 16 + pgvector, fastembed, Ollama/OpenRouter provider layer.
 - `docs/architecture.md` — full system map. `docs/decisions.md` — the "why" for every non-obvious call. Read both.
 
-**Run it** (PowerShell, from repo root): `docker compose up -d db`, then
-`powershell -File scripts/dev.ps1` (starts db + api:8300 + web:3000). Demo login:
-`demo@example.com` / `demo-password-1`. Backend tests: `cd apps/api; uv run pytest` (67 passing).
+**Run it** (from repo root): `./scripts/dev.sh` — starts db + api:8300 + web:3000.
+Demo login: `demo@example.com` / `demo-password-1`. Backend tests:
+`(cd apps/api && uv run pytest)` (67 passing).
 
-**Windows gotcha (important):** `uvicorn --reload` orphans stale workers on
-restart — after backend edits, kill and restart cleanly:
-`Get-CimInstance Win32_Process | ? { $_.CommandLine -match 'uvicorn' } | % { cmd /c "taskkill /PID $($_.ProcessId) /T /F" }` then re-run. See decision 2.1.
+**uvicorn gotcha (important):** `uvicorn --reload` orphans stale workers when only
+the wrapper process is killed, leaving the old code serving the port. `scripts/dev.sh`
+handles this — Ctrl-C tears down each service's whole process group. If you started
+uvicorn by hand instead, clean up with `pkill -f 'uvicorn lore_api.main:app'` before
+re-running. See decision 2.1.
 
 **AI requires a configured model** (Ollama or an OpenRouter key) via Settings → AI
 in the app. Chat/agent/generation do nothing without one; the rest of the app works regardless.

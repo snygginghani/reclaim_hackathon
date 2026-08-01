@@ -1,16 +1,23 @@
 # Setup
 
-Prereqs: Docker Desktop, Node 20+, Python 3.12+, [uv](https://docs.astral.sh/uv/).
+Prereqs: Docker Engine + Compose v2, Node 20+, Python 3.12+,
+[uv](https://docs.astral.sh/uv/). Your user needs to be able to talk to the
+Docker daemon — either in the `docker` group (`sudo usermod -aG docker $USER`,
+then log out and back in) or running rootless Docker.
 
-```powershell
+```bash
 # first time only
 docker compose up -d db                 # Postgres + pgvector on :5433
-cd apps/api;  uv sync;  uv run alembic upgrade head
+cd apps/api
+uv sync
+uv run alembic upgrade head
 uv run python scripts/seed.py           # optional: demo workspace + content
-cd ../web;  npm install;  cd ../..
+cd ../web
+npm install
+cd ../..
 
-# every time — starts db + api + web in their own windows
-powershell -File scripts/dev.ps1
+# every time — starts db + api + web, logs prefixed [api] / [web]
+./scripts/dev.sh                        # Ctrl-C stops api + web
 ```
 
 - Web: http://localhost:3000  ·  API docs: http://localhost:8300/docs
@@ -22,9 +29,9 @@ OpenRouter key. Everything else works without a model.
 
 ## Tests
 
-```powershell
-cd apps/api;  uv run pytest        # 67 backend tests
-cd apps/web;  npx tsc --noEmit && npx eslint src
+```bash
+(cd apps/api && uv run pytest)                       # 67 backend tests
+(cd apps/web && npx tsc --noEmit && npx eslint src)
 ```
 
 ## Repository layout
@@ -34,7 +41,7 @@ cd apps/web;  npx tsc --noEmit && npx eslint src
 | `apps/web` | Next.js frontend |
 | `apps/api` | FastAPI backend (`lore_api/`), migrations, tests, `scripts/seed.py` |
 | `docs/` | brief · architecture · decisions · design system · setup |
-| `scripts/dev.ps1` | one-command dev stack |
+| `scripts/dev.sh` | one-command dev stack |
 
 ## Stack
 
